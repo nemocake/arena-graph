@@ -573,12 +573,13 @@
 
             <!-- Category Filter Dropdown -->
             <div class="relative" id="cat-filter-wrapper">
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1.5">
                     <button class="ctrl-btn flex items-center gap-1.5" id="cat-filter-trigger">
                         <span id="cat-filter-label">FILTER</span>
                         <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
                     </button>
-                    <span id="cat-filter-active-badge" class="hidden font-mono text-[9px] cursor-pointer hover:opacity-80" title="Clear filter">&times;</span>
+                    <!-- Active filter pills -->
+                    <div id="cat-filter-active-pills" class="flex items-center gap-1 overflow-x-auto" style="max-width: 300px;"></div>
                 </div>
 
                 <div id="cat-filter-dropdown" class="glass-panel">
@@ -1098,6 +1099,19 @@
                             'opacity': 0.02,
                         }
                     },
+                    // Category filter hidden
+                    {
+                        selector: 'node.cat-hidden',
+                        style: {
+                            'display': 'none',
+                        }
+                    },
+                    {
+                        selector: 'edge.cat-hidden',
+                        style: {
+                            'display': 'none',
+                        }
+                    },
                     // Domain highlighted
                     {
                         selector: 'node.domain-match',
@@ -1345,11 +1359,12 @@
             const catFilterDropdown = document.getElementById('cat-filter-dropdown');
             const catFilterSearch = document.getElementById('cat-filter-search');
             const catFilterList = document.getElementById('cat-filter-list');
-            const catFilterBadge = document.getElementById('cat-filter-active-badge');
+            const catFilterActivePills = document.getElementById('cat-filter-active-pills');
             const domainCounts = meta.domainCounts || {};
             let catFilterOpen = false;
             let catFilterCategory = 'artist';
-            let activeCatFilter = null;
+            // Multi-select: Map of category -> Set of selected tag keys
+            const activeCatFilters = new Map();
 
             // ─── Boot complete ───
             await log('<span class="text-acid">graph ready. ' + meta.blockCount + ' nodes rendered.</span>', 200);
@@ -2237,15 +2252,9 @@
                 const domainLink = document.getElementById('detail-domain-link');
                 if (domainLink) {
                     domainLink.addEventListener('click', () => {
-                        if (typeof catFilterData !== 'undefined') {
-                            const matchingSource = catFilterData.source.find(s => s.name === data.domain);
-                            if (matchingSource) {
-                                catFilterCategory = 'source';
-                                document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-                                const srcTab = document.querySelector('.cat-tab[data-cat="source"]');
-                                if (srcTab) srcTab.classList.add('active');
-                                applyCatFilter(matchingSource);
-                            }
+                        if (typeof applyCatFilterByKey === 'function') {
+                            const tagKey = 'source:' + data.domain;
+                            applyCatFilterByKey(tagKey);
                         }
                     });
                 }
@@ -2258,19 +2267,11 @@
                     });
                 }
 
-                // Make auto-tag pills clickable (filter graph by that tag)
+                // Make auto-tag pills clickable (add to multi-select filter)
                 detailContent.querySelectorAll('[data-autotag]').forEach(el => {
                     el.addEventListener('click', () => {
-                        if (typeof catFilterData === 'undefined') return;
-                        const tagKey = el.dataset.autotag;
-                        const cat = tagKey.split(':')[0];
-                        const matchingItem = (catFilterData[cat] || []).find(item => item.key === tagKey);
-                        if (matchingItem) {
-                            catFilterCategory = cat;
-                            document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-                            const activeTab = document.querySelector('.cat-tab[data-cat="' + cat + '"]');
-                            if (activeTab) activeTab.classList.add('active');
-                            applyCatFilter(matchingItem);
+                        if (typeof applyCatFilterByKey === 'function') {
+                            applyCatFilterByKey(el.dataset.autotag);
                         }
                     });
                 });
@@ -2393,7 +2394,7 @@
                 cy.batch(() => {
                     cy.elements().removeClass('faded').removeClass('highlighted').removeClass('search-match')
                         .removeClass('cross-glow').removeClass('walk-active').removeClass('walk-trail')
-                        .removeClass('domain-match').removeClass('path-end').removeClass('path-node')
+                        .removeClass('domain-match').removeClass('cat-hidden').removeClass('path-end').removeClass('path-node')
                         .removeClass('path-edge').removeClass('similar-match').removeClass('kb-selected');
                 });
                 searchInput.value = '';
@@ -2794,12 +2795,16 @@
                 artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900'
             };
             const catFilterData = { artist: [], medium: [], theme: [], source: [] };
+            // Lookup: tagKey -> item for quick access
+            const catFilterLookup = {};
 
             for (const [tagKey, blockIds] of Object.entries(autoTagIndex)) {
                 const cat = tagKey.split(':')[0];
                 if (catFilterData[cat]) {
                     const name = tagKey.substring(cat.length + 1);
-                    catFilterData[cat].push({ key: tagKey, name, count: blockIds.length, blockIds });
+                    const item = { key: tagKey, cat, name, count: blockIds.length, blockIds };
+                    catFilterData[cat].push(item);
+                    catFilterLookup[tagKey] = item;
                 }
             }
             for (const cat of Object.keys(catFilterData)) {
@@ -2811,6 +2816,20 @@
             document.getElementById('cat-count-medium').textContent = catFilterData.medium.length;
             document.getElementById('cat-count-theme').textContent = catFilterData.theme.length;
             document.getElementById('cat-count-source').textContent = catFilterData.source.length;
+
+            // Check if a tag key is currently selected
+            function isCatFilterSelected(key) {
+                const cat = key.split(':')[0];
+                const set = activeCatFilters.get(cat);
+                return set ? set.has(key) : false;
+            }
+
+            // Get total number of active filter selections
+            function getCatFilterCount() {
+                let count = 0;
+                for (const set of activeCatFilters.values()) count += set.size;
+                return count;
+            }
 
             // Render the item list for current tab + search query
             function renderCatFilterList() {
@@ -2832,65 +2851,147 @@
                 filtered.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'cat-filter-item';
-                    if (activeCatFilter && activeCatFilter.key === item.key) {
+                    const selected = isCatFilterSelected(item.key);
+                    if (selected) {
                         el.style.background = color + '18';
                         el.style.color = color;
+                        el.style.borderLeft = '2px solid ' + color;
                     }
-                    el.innerHTML = '<span class="truncate" style="max-width:220px;">' + item.name + '</span>' +
-                        '<span class="font-mono text-[9px] opacity-40 flex-shrink-0">' + item.count + '</span>';
-                    el.addEventListener('click', () => applyCatFilter(item));
+                    el.innerHTML = (selected ? '<span class="flex-shrink-0 mr-1" style="color:' + color + ';">&#10003;</span>' : '') +
+                        '<span class="truncate" style="max-width:200px;">' + item.name + '</span>' +
+                        '<span class="font-mono text-[9px] opacity-40 flex-shrink-0 ml-auto">' + item.count + '</span>';
+                    el.addEventListener('click', () => toggleCatFilter(item));
                     catFilterList.appendChild(el);
                 });
             }
 
-            // Apply a category filter (fade/highlight)
-            function applyCatFilter(item) {
-                if (activeCatFilter && activeCatFilter.key === item.key) {
-                    clearCatFilter();
-                    return;
+            // Toggle a filter selection on/off
+            function toggleCatFilter(item) {
+                const cat = item.cat;
+                if (!activeCatFilters.has(cat)) activeCatFilters.set(cat, new Set());
+                const set = activeCatFilters.get(cat);
+
+                if (set.has(item.key)) {
+                    set.delete(item.key);
+                    if (set.size === 0) activeCatFilters.delete(cat);
+                } else {
+                    set.add(item.key);
                 }
 
                 activeTagFilter = null;
-                activeCatFilter = item;
-                const color = catColors[catFilterCategory];
-
-                clearHighlight();
-                cy.batch(() => {
-                    cy.elements().addClass('faded');
-                    _lastFadedSet = cy.elements();
-                    cy.nodes('[type="channel"]').removeClass('faded');
-                    item.blockIds.forEach(bid => {
-                        const node = cy.getElementById(bid);
-                        if (node.length) {
-                            node.removeClass('faded').addClass('domain-match');
-                            node.connectedEdges().removeClass('faded');
-                        }
-                    });
-                });
-
-                catFilterLabel.textContent = item.name.length > 14 ? item.name.substring(0, 14) + '...' : item.name;
-                catFilterLabel.style.color = color;
-                catFilterTrigger.style.borderColor = color;
-                catFilterBadge.classList.remove('hidden');
-                catFilterBadge.style.color = color;
-
-                closeCatDropdown();
+                applyCatFilters();
                 renderCatFilterList();
+                renderCatFilterPills();
                 renderTagFilterBar();
             }
 
+            // Apply all active filters: union within category, intersection across categories
+            function applyCatFilters() {
+                clearHighlight();
+                const totalSelections = getCatFilterCount();
+
+                if (totalSelections === 0) {
+                    // No filters — show everything
+                    cy.batch(() => {
+                        cy.elements().removeClass('cat-hidden').removeClass('domain-match');
+                    });
+                    catFilterLabel.textContent = 'FILTER';
+                    catFilterLabel.style.color = '';
+                    catFilterTrigger.style.borderColor = '';
+                    return;
+                }
+
+                // Compute visible block IDs: union within category, intersection across categories
+                let resultSet = null;
+                for (const [cat, keys] of activeCatFilters) {
+                    // Union all block IDs for selected keys in this category
+                    const catSet = new Set();
+                    for (const key of keys) {
+                        const item = catFilterLookup[key];
+                        if (item) item.blockIds.forEach(bid => catSet.add(bid));
+                    }
+                    // Intersect with results from other categories
+                    if (resultSet === null) {
+                        resultSet = catSet;
+                    } else {
+                        resultSet = new Set([...resultSet].filter(id => catSet.has(id)));
+                    }
+                }
+
+                cy.batch(() => {
+                    cy.elements().removeClass('cat-hidden').removeClass('domain-match');
+                    cy.nodes('[type="block"]').forEach(n => {
+                        if (!resultSet.has(n.id())) {
+                            n.addClass('cat-hidden');
+                            n.connectedEdges().addClass('cat-hidden');
+                        }
+                    });
+                    // Unhide edges connected to visible blocks
+                    cy.nodes('[type="block"]').not('.cat-hidden').connectedEdges().removeClass('cat-hidden');
+                });
+
+                // Update trigger style
+                catFilterLabel.textContent = 'FILTER (' + totalSelections + ')';
+                const firstCat = activeCatFilters.keys().next().value;
+                const triggerColor = activeCatFilters.size === 1 ? catColors[firstCat] : '#ccff00';
+                catFilterLabel.style.color = triggerColor;
+                catFilterTrigger.style.borderColor = triggerColor;
+            }
+
+            // Render active filter pills next to trigger
+            function renderCatFilterPills() {
+                catFilterActivePills.innerHTML = '';
+                for (const [cat, keys] of activeCatFilters) {
+                    const color = catColors[cat];
+                    for (const key of keys) {
+                        const item = catFilterLookup[key];
+                        if (!item) continue;
+                        const pill = document.createElement('span');
+                        pill.className = 'font-mono text-[8px] px-1.5 py-0.5 cursor-pointer flex items-center gap-1 flex-shrink-0';
+                        pill.style.cssText = 'background:' + color + '15; color:' + color + '; border: 1px solid ' + color + '30;';
+                        pill.innerHTML = item.name + ' <span class="opacity-60 hover:opacity-100">&times;</span>';
+                        pill.title = 'Remove ' + item.name;
+                        pill.addEventListener('click', () => toggleCatFilter(item));
+                        catFilterActivePills.appendChild(pill);
+                    }
+                }
+                // Clear all button if multiple filters
+                if (getCatFilterCount() > 1) {
+                    const clearAll = document.createElement('span');
+                    clearAll.className = 'font-mono text-[8px] px-1.5 py-0.5 cursor-pointer flex-shrink-0 text-gray-500 hover:text-acid';
+                    clearAll.style.border = '1px dashed rgba(255,255,255,0.15)';
+                    clearAll.textContent = 'CLR';
+                    clearAll.title = 'Clear all filters';
+                    clearAll.addEventListener('click', () => clearCatFilter());
+                    catFilterActivePills.appendChild(clearAll);
+                }
+            }
+
             function clearCatFilter() {
-                activeCatFilter = null;
+                activeCatFilters.clear();
                 clearHighlight();
                 cy.batch(() => {
-                    cy.nodes('.domain-match').removeClass('domain-match');
-                    cy.elements().removeClass('faded');
+                    cy.elements().removeClass('cat-hidden').removeClass('domain-match');
                 });
                 catFilterLabel.textContent = 'FILTER';
                 catFilterLabel.style.color = '';
                 catFilterTrigger.style.borderColor = '';
-                catFilterBadge.classList.add('hidden');
+                catFilterActivePills.innerHTML = '';
                 renderCatFilterList();
+                renderTagFilterBar();
+            }
+
+            // programmatic add (used by detail panel clicks)
+            function applyCatFilterByKey(tagKey) {
+                const item = catFilterLookup[tagKey];
+                if (!item) return;
+                const cat = item.cat;
+                if (!activeCatFilters.has(cat)) activeCatFilters.set(cat, new Set());
+                activeCatFilters.get(cat).add(item.key);
+                activeTagFilter = null;
+                applyCatFilters();
+                renderCatFilterList();
+                renderCatFilterPills();
                 renderTagFilterBar();
             }
 
@@ -2913,8 +3014,6 @@
                 else openCatDropdown();
             });
 
-            catFilterBadge.addEventListener('click', () => clearCatFilter());
-
             document.querySelectorAll('.cat-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
                     catFilterCategory = tab.dataset.cat;
@@ -2936,11 +3035,11 @@
             _escapeHooks.push(() => closeCatDropdown());
 
             _resetHooks.push(() => {
-                activeCatFilter = null;
+                activeCatFilters.clear();
                 catFilterLabel.textContent = 'FILTER';
                 catFilterLabel.style.color = '';
                 catFilterTrigger.style.borderColor = '';
-                catFilterBadge.classList.add('hidden');
+                catFilterActivePills.innerHTML = '';
                 closeCatDropdown();
             });
 
@@ -3002,14 +3101,14 @@
                         pill.style.borderColor = tag.color;
                     }
                     pill.addEventListener('click', () => {
-                        // Clear category dropdown filter if active
-                        if (activeCatFilter) {
-                            activeCatFilter = null;
-                            cy.nodes('.domain-match').removeClass('domain-match');
+                        // Clear category dropdown filters if active
+                        if (getCatFilterCount() > 0) {
+                            activeCatFilters.clear();
+                            cy.elements().removeClass('cat-hidden').removeClass('domain-match');
                             catFilterLabel.textContent = 'FILTER';
                             catFilterLabel.style.color = '';
                             catFilterTrigger.style.borderColor = '';
-                            catFilterBadge.classList.add('hidden');
+                            catFilterActivePills.innerHTML = '';
                         }
                         if (activeTagFilter === name) {
                             activeTagFilter = null;
