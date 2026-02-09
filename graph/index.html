@@ -351,6 +351,68 @@
             border-color: rgba(255,255,255,0.2);
             color: rgba(255,255,255,0.6);
         }
+
+        /* Category Filter Dropdown */
+        #cat-filter-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            width: 300px;
+            max-height: 420px;
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+        }
+        #cat-filter-dropdown.open {
+            display: flex;
+        }
+        .cat-tab {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.35);
+            cursor: pointer;
+            transition: all 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: transparent;
+        }
+        .cat-tab:hover {
+            color: rgba(255,255,255,0.6);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .cat-filter-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background 0.1s;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+        }
+        .cat-filter-item:hover {
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.8);
+        }
+        .cat-filter-search {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 5px 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            outline: none;
+            width: 100%;
+        }
+        .cat-filter-search:focus {
+            border-color: rgba(255,255,255,0.15);
+        }
+        .cat-filter-search::placeholder {
+            color: rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 
@@ -509,10 +571,32 @@
 
             <span class="text-gray-800 ml-auto">|</span>
 
-            <!-- Domain filter -->
-            <select id="domain-filter" class="ctrl-btn bg-void appearance-none pr-5 cursor-pointer text-[9px]" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22%3E%3Cpath d=%22M0 2l4 4 4-4%22 fill=%22%23666%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 6px center; max-width: 160px;">
-                <option value="">DOMAINS</option>
-            </select>
+            <!-- Category Filter Dropdown -->
+            <div class="relative" id="cat-filter-wrapper">
+                <div class="flex items-center gap-1">
+                    <button class="ctrl-btn flex items-center gap-1.5" id="cat-filter-trigger">
+                        <span id="cat-filter-label">FILTER</span>
+                        <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
+                    </button>
+                    <span id="cat-filter-active-badge" class="hidden font-mono text-[9px] cursor-pointer hover:opacity-80" title="Clear filter">&times;</span>
+                </div>
+
+                <div id="cat-filter-dropdown" class="glass-panel">
+                    <!-- Category Tabs -->
+                    <div class="flex gap-1 p-2 border-b border-white/[0.06]">
+                        <button class="cat-tab active" data-cat="artist" style="--cat-color:#ff3366;">ART <span class="opacity-40" id="cat-count-artist"></span></button>
+                        <button class="cat-tab" data-cat="medium" style="--cat-color:#00ff88;">MED <span class="opacity-40" id="cat-count-medium"></span></button>
+                        <button class="cat-tab" data-cat="theme" style="--cat-color:#00f3ff;">THM <span class="opacity-40" id="cat-count-theme"></span></button>
+                        <button class="cat-tab" data-cat="source" style="--cat-color:#ff9900;">SRC <span class="opacity-40" id="cat-count-source"></span></button>
+                    </div>
+                    <!-- Search -->
+                    <div class="p-2 border-b border-white/[0.06]">
+                        <input type="text" class="cat-filter-search" id="cat-filter-search" placeholder="search..." autocomplete="off" spellcheck="false">
+                    </div>
+                    <!-- Scrollable item list -->
+                    <div id="cat-filter-list" class="overflow-y-auto" style="max-height: 300px;"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Walk Breadcrumb (hidden by default) -->
@@ -1255,15 +1339,17 @@
             });
             document.getElementById('channel-legend').style.opacity = '1';
 
-            // ─── Populate domain filter ───
-            const domainFilter = document.getElementById('domain-filter');
+            // ─── Category Filter: DOM refs ───
+            const catFilterTrigger = document.getElementById('cat-filter-trigger');
+            const catFilterLabel = document.getElementById('cat-filter-label');
+            const catFilterDropdown = document.getElementById('cat-filter-dropdown');
+            const catFilterSearch = document.getElementById('cat-filter-search');
+            const catFilterList = document.getElementById('cat-filter-list');
+            const catFilterBadge = document.getElementById('cat-filter-active-badge');
             const domainCounts = meta.domainCounts || {};
-            Object.entries(domainCounts).slice(0, 30).forEach(([dom, cnt]) => {
-                const opt = document.createElement('option');
-                opt.value = dom;
-                opt.textContent = `${dom} (${cnt})`;
-                domainFilter.appendChild(opt);
-            });
+            let catFilterOpen = false;
+            let catFilterCategory = 'artist';
+            let activeCatFilter = null;
 
             // ─── Boot complete ───
             await log('<span class="text-acid">graph ready. ' + meta.blockCount + ' nodes rendered.</span>', 200);
@@ -2073,7 +2159,7 @@
                                         const cat = t.split(':')[0];
                                         const catColors = { artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900' };
                                         const c = catColors[cat] || '#666';
-                                        return '<span class="tag-pill" style="background:' + c + '15; color:' + c + '; border: 1px solid ' + c + '30;">' + t + '</span>';
+                                        return '<span class="tag-pill" data-autotag="' + t + '" style="background:' + c + '15; color:' + c + '; border: 1px solid ' + c + '30; cursor:pointer;">' + t + '</span>';
                                     }).join('')}
                                 </div>
                             </div>
@@ -2147,12 +2233,20 @@
                     });
                 });
 
-                // Bind domain filter link
+                // Bind domain filter link (uses category filter dropdown)
                 const domainLink = document.getElementById('detail-domain-link');
                 if (domainLink) {
                     domainLink.addEventListener('click', () => {
-                        domainFilter.value = data.domain;
-                        applyDomainFilter(data.domain);
+                        if (typeof catFilterData !== 'undefined') {
+                            const matchingSource = catFilterData.source.find(s => s.name === data.domain);
+                            if (matchingSource) {
+                                catFilterCategory = 'source';
+                                document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+                                const srcTab = document.querySelector('.cat-tab[data-cat="source"]');
+                                if (srcTab) srcTab.classList.add('active');
+                                applyCatFilter(matchingSource);
+                            }
+                        }
                     });
                 }
 
@@ -2163,6 +2257,23 @@
                         findSimilarBlocks(data);
                     });
                 }
+
+                // Make auto-tag pills clickable (filter graph by that tag)
+                detailContent.querySelectorAll('[data-autotag]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        if (typeof catFilterData === 'undefined') return;
+                        const tagKey = el.dataset.autotag;
+                        const cat = tagKey.split(':')[0];
+                        const matchingItem = (catFilterData[cat] || []).find(item => item.key === tagKey);
+                        if (matchingItem) {
+                            catFilterCategory = cat;
+                            document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+                            const activeTab = document.querySelector('.cat-tab[data-cat="' + cat + '"]');
+                            if (activeTab) activeTab.classList.add('active');
+                            applyCatFilter(matchingItem);
+                        }
+                    });
+                });
 
                 // Update tag bar
                 renderTagFilterBar();
@@ -2286,7 +2397,6 @@
                         .removeClass('path-edge').removeClass('similar-match').removeClass('kb-selected');
                 });
                 searchInput.value = '';
-                domainFilter.value = '';
                 _resetHooks.forEach(fn => fn());
                 cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 400 });
                 closeDetail();
@@ -2296,29 +2406,6 @@
             // ═══════════════════════════════════════════════════
             // PHASE D: DATA ENRICHMENT
             // ═══════════════════════════════════════════════════
-
-            // ─── Domain Filter ───
-            function applyDomainFilter(domain) {
-                cy.batch(() => {
-                    cy.nodes('.domain-match').removeClass('domain-match');
-                    if (!domain) {
-                        cy.elements().removeClass('faded');
-                        return;
-                    }
-                    cy.elements().addClass('faded');
-                    cy.nodes('[type="channel"]').removeClass('faded');
-                    cy.nodes('[type="block"]').forEach(n => {
-                        if (n.data('domain') === domain) {
-                            n.removeClass('faded').addClass('domain-match');
-                            n.connectedEdges().removeClass('faded');
-                        }
-                    });
-                });
-            }
-
-            domainFilter.addEventListener('change', function() {
-                applyDomainFilter(this.value);
-            });
 
             // ─── Domain Cluster Layout ───
             function runDomainLayout() {
@@ -2702,6 +2789,161 @@
             const autoTagIndex = meta.autoTagIndex || {};
             let activeTagCategory = 'all';
 
+            // ─── Category Filter: Build sorted lists ───
+            const catColors = {
+                artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900'
+            };
+            const catFilterData = { artist: [], medium: [], theme: [], source: [] };
+
+            for (const [tagKey, blockIds] of Object.entries(autoTagIndex)) {
+                const cat = tagKey.split(':')[0];
+                if (catFilterData[cat]) {
+                    const name = tagKey.substring(cat.length + 1);
+                    catFilterData[cat].push({ key: tagKey, name, count: blockIds.length, blockIds });
+                }
+            }
+            for (const cat of Object.keys(catFilterData)) {
+                catFilterData[cat].sort((a, b) => b.count - a.count);
+            }
+
+            // Set tab count badges
+            document.getElementById('cat-count-artist').textContent = catFilterData.artist.length;
+            document.getElementById('cat-count-medium').textContent = catFilterData.medium.length;
+            document.getElementById('cat-count-theme').textContent = catFilterData.theme.length;
+            document.getElementById('cat-count-source').textContent = catFilterData.source.length;
+
+            // Render the item list for current tab + search query
+            function renderCatFilterList() {
+                const query = catFilterSearch.value.trim().toLowerCase();
+                const items = catFilterData[catFilterCategory] || [];
+                const color = catColors[catFilterCategory];
+
+                const filtered = query
+                    ? items.filter(item => item.name.toLowerCase().includes(query))
+                    : items;
+
+                catFilterList.innerHTML = '';
+
+                if (filtered.length === 0) {
+                    catFilterList.innerHTML = '<div class="p-3 font-mono text-[9px] text-gray-600 text-center">no matches</div>';
+                    return;
+                }
+
+                filtered.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'cat-filter-item';
+                    if (activeCatFilter && activeCatFilter.key === item.key) {
+                        el.style.background = color + '18';
+                        el.style.color = color;
+                    }
+                    el.innerHTML = '<span class="truncate" style="max-width:220px;">' + item.name + '</span>' +
+                        '<span class="font-mono text-[9px] opacity-40 flex-shrink-0">' + item.count + '</span>';
+                    el.addEventListener('click', () => applyCatFilter(item));
+                    catFilterList.appendChild(el);
+                });
+            }
+
+            // Apply a category filter (fade/highlight)
+            function applyCatFilter(item) {
+                if (activeCatFilter && activeCatFilter.key === item.key) {
+                    clearCatFilter();
+                    return;
+                }
+
+                activeTagFilter = null;
+                activeCatFilter = item;
+                const color = catColors[catFilterCategory];
+
+                clearHighlight();
+                cy.batch(() => {
+                    cy.elements().addClass('faded');
+                    _lastFadedSet = cy.elements();
+                    cy.nodes('[type="channel"]').removeClass('faded');
+                    item.blockIds.forEach(bid => {
+                        const node = cy.getElementById(bid);
+                        if (node.length) {
+                            node.removeClass('faded').addClass('domain-match');
+                            node.connectedEdges().removeClass('faded');
+                        }
+                    });
+                });
+
+                catFilterLabel.textContent = item.name.length > 14 ? item.name.substring(0, 14) + '...' : item.name;
+                catFilterLabel.style.color = color;
+                catFilterTrigger.style.borderColor = color;
+                catFilterBadge.classList.remove('hidden');
+                catFilterBadge.style.color = color;
+
+                closeCatDropdown();
+                renderCatFilterList();
+                renderTagFilterBar();
+            }
+
+            function clearCatFilter() {
+                activeCatFilter = null;
+                clearHighlight();
+                cy.batch(() => {
+                    cy.nodes('.domain-match').removeClass('domain-match');
+                    cy.elements().removeClass('faded');
+                });
+                catFilterLabel.textContent = 'FILTER';
+                catFilterLabel.style.color = '';
+                catFilterTrigger.style.borderColor = '';
+                catFilterBadge.classList.add('hidden');
+                renderCatFilterList();
+                renderTagFilterBar();
+            }
+
+            function openCatDropdown() {
+                catFilterOpen = true;
+                catFilterDropdown.classList.add('open');
+                catFilterSearch.value = '';
+                renderCatFilterList();
+                requestAnimationFrame(() => catFilterSearch.focus());
+            }
+
+            function closeCatDropdown() {
+                catFilterOpen = false;
+                catFilterDropdown.classList.remove('open');
+                catFilterSearch.value = '';
+            }
+
+            catFilterTrigger.addEventListener('click', () => {
+                if (catFilterOpen) closeCatDropdown();
+                else openCatDropdown();
+            });
+
+            catFilterBadge.addEventListener('click', () => clearCatFilter());
+
+            document.querySelectorAll('.cat-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    catFilterCategory = tab.dataset.cat;
+                    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    catFilterSearch.value = '';
+                    renderCatFilterList();
+                });
+            });
+
+            catFilterSearch.addEventListener('input', () => renderCatFilterList());
+
+            document.addEventListener('click', (e) => {
+                if (catFilterOpen && !document.getElementById('cat-filter-wrapper').contains(e.target)) {
+                    closeCatDropdown();
+                }
+            });
+
+            _escapeHooks.push(() => closeCatDropdown());
+
+            _resetHooks.push(() => {
+                activeCatFilter = null;
+                catFilterLabel.textContent = 'FILTER';
+                catFilterLabel.style.color = '';
+                catFilterTrigger.style.borderColor = '';
+                catFilterBadge.classList.add('hidden');
+                closeCatDropdown();
+            });
+
             // ─── Apply Auto-Tags Button ───
             document.getElementById('btn-apply-autotags').addEventListener('click', () => {
                 const catColors = {
@@ -2760,6 +3002,15 @@
                         pill.style.borderColor = tag.color;
                     }
                     pill.addEventListener('click', () => {
+                        // Clear category dropdown filter if active
+                        if (activeCatFilter) {
+                            activeCatFilter = null;
+                            cy.nodes('.domain-match').removeClass('domain-match');
+                            catFilterLabel.textContent = 'FILTER';
+                            catFilterLabel.style.color = '';
+                            catFilterTrigger.style.borderColor = '';
+                            catFilterBadge.classList.add('hidden');
+                        }
                         if (activeTagFilter === name) {
                             activeTagFilter = null;
                             clearHighlight();
