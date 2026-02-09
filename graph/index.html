@@ -413,6 +413,43 @@
         .cat-filter-search::placeholder {
             color: rgba(255,255,255,0.2);
         }
+
+        /* Channel Filter */
+        #ch-filter-dropdown.open {
+            display: flex;
+        }
+        .ch-filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: background 0.1s;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+        }
+        .ch-filter-item:hover {
+            background: rgba(255,255,255,0.04);
+        }
+        .ch-filter-item.disabled {
+            opacity: 0.3;
+        }
+        .ch-toggle {
+            width: 10px;
+            height: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+        }
+        .ch-toggle.on {
+            border-color: var(--ch-color);
+            background: var(--ch-color);
+            color: #000;
+        }
     </style>
 </head>
 
@@ -570,6 +607,26 @@
             </div>
 
             <span class="text-gray-800 ml-auto">|</span>
+
+            <!-- Channel Filter Dropdown -->
+            <div class="relative" id="ch-filter-wrapper">
+                <button class="ctrl-btn flex items-center gap-1.5" id="ch-filter-trigger">
+                    <span id="ch-filter-label">CHANNELS</span>
+                    <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
+                </button>
+                <div id="ch-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:260px; max-height:400px; z-index:50; display:none; flex-direction:column;">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between p-2 border-b border-white/[0.06]">
+                        <span class="font-mono text-[9px] text-gray-500 uppercase tracking-widest">Toggle Channels</span>
+                        <div class="flex gap-2">
+                            <button class="font-mono text-[8px] text-gray-500 hover:text-acid" id="ch-filter-all">ALL</button>
+                            <button class="font-mono text-[8px] text-gray-500 hover:text-acid" id="ch-filter-none">NONE</button>
+                        </div>
+                    </div>
+                    <!-- Channel list -->
+                    <div id="ch-filter-list" class="overflow-y-auto p-1" style="max-height:340px;"></div>
+                </div>
+            </div>
 
             <!-- Category Filter Dropdown -->
             <div class="relative" id="cat-filter-wrapper">
@@ -1112,6 +1169,19 @@
                             'display': 'none',
                         }
                     },
+                    // Channel filter hidden
+                    {
+                        selector: 'node.ch-hidden',
+                        style: {
+                            'display': 'none',
+                        }
+                    },
+                    {
+                        selector: 'edge.ch-hidden',
+                        style: {
+                            'display': 'none',
+                        }
+                    },
                     // Domain highlighted
                     {
                         selector: 'node.domain-match',
@@ -1352,6 +1422,121 @@
                 legendItems.appendChild(el);
             });
             document.getElementById('channel-legend').style.opacity = '1';
+
+            // ─── Channel Filter ───
+            const chFilterTrigger = document.getElementById('ch-filter-trigger');
+            const chFilterLabel = document.getElementById('ch-filter-label');
+            const chFilterDropdown = document.getElementById('ch-filter-dropdown');
+            const chFilterList = document.getElementById('ch-filter-list');
+            const chFilterAll = document.getElementById('ch-filter-all');
+            const chFilterNone = document.getElementById('ch-filter-none');
+            let chFilterOpen = false;
+            const visibleChannels = new Set(channelNodes.map(ch => ch.data.id));
+
+            // Populate channel list
+            function renderChFilterList() {
+                chFilterList.innerHTML = '';
+                channelNodes.forEach((ch, i) => {
+                    const color = CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
+                    const isOn = visibleChannels.has(ch.data.id);
+                    const el = document.createElement('div');
+                    el.className = 'ch-filter-item' + (isOn ? '' : ' disabled');
+                    el.style.setProperty('--ch-color', color);
+                    el.innerHTML = `
+                        <span class="ch-toggle ${isOn ? 'on' : ''}">${isOn ? '✓' : ''}</span>
+                        <span class="font-mono text-[10px] truncate" style="color: ${isOn ? '#ccc' : '#555'}">${ch.data.label}</span>
+                        <span class="font-mono text-[9px] ml-auto" style="color: ${isOn ? '#666' : '#333'}">${ch.data.blockCount}</span>
+                    `;
+                    el.addEventListener('click', () => {
+                        if (visibleChannels.has(ch.data.id)) {
+                            visibleChannels.delete(ch.data.id);
+                        } else {
+                            visibleChannels.add(ch.data.id);
+                        }
+                        renderChFilterList();
+                        applyChannelFilter();
+                    });
+                    chFilterList.appendChild(el);
+                });
+            }
+            renderChFilterList();
+
+            function applyChannelFilter() {
+                const allOn = visibleChannels.size === channelNodes.length;
+                cy.batch(() => {
+                    cy.elements().removeClass('ch-hidden');
+                    if (!allOn) {
+                        // Hide channel nodes that are toggled off
+                        cy.nodes('[type="channel"]').forEach(n => {
+                            if (!visibleChannels.has(n.id())) {
+                                n.addClass('ch-hidden');
+                                n.connectedEdges().addClass('ch-hidden');
+                            }
+                        });
+                        // Hide blocks only connected to hidden channels
+                        cy.nodes('[type="block"]').forEach(n => {
+                            const channels = blockToChannelsMap[n.id()] || [];
+                            const hasVisibleChannel = channels.some(chId => visibleChannels.has(chId));
+                            if (!hasVisibleChannel) {
+                                n.addClass('ch-hidden');
+                                n.connectedEdges().addClass('ch-hidden');
+                            }
+                        });
+                        // Unhide edges between visible nodes
+                        cy.nodes('[type="block"]').not('.ch-hidden').connectedEdges().forEach(e => {
+                            const src = e.source();
+                            const tgt = e.target();
+                            if (!src.hasClass('ch-hidden') && !tgt.hasClass('ch-hidden')) {
+                                e.removeClass('ch-hidden');
+                            }
+                        });
+                    }
+                });
+                // Update trigger label
+                if (allOn) {
+                    chFilterLabel.textContent = 'CHANNELS';
+                    chFilterLabel.style.color = '';
+                    chFilterTrigger.style.borderColor = '';
+                } else {
+                    chFilterLabel.textContent = 'CHANNELS (' + visibleChannels.size + '/' + channelNodes.length + ')';
+                    chFilterLabel.style.color = '#ccff00';
+                    chFilterTrigger.style.borderColor = '#ccff00';
+                }
+            }
+
+            // Open/close channel filter dropdown
+            chFilterTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                chFilterOpen = !chFilterOpen;
+                chFilterDropdown.classList.toggle('open', chFilterOpen);
+                // Close category filter if open
+                if (chFilterOpen) {
+                    const catDd = document.getElementById('cat-filter-dropdown');
+                    if (catDd && catDd.classList.contains('open')) catDd.classList.remove('open');
+                }
+            });
+
+            chFilterAll.addEventListener('click', (e) => {
+                e.stopPropagation();
+                channelNodes.forEach(ch => visibleChannels.add(ch.data.id));
+                renderChFilterList();
+                applyChannelFilter();
+            });
+
+            chFilterNone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                visibleChannels.clear();
+                renderChFilterList();
+                applyChannelFilter();
+            });
+
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (chFilterOpen && !document.getElementById('ch-filter-wrapper').contains(e.target)) {
+                    chFilterOpen = false;
+                    chFilterDropdown.classList.remove('open');
+                }
+            });
 
             // ─── Category Filter: DOM refs ───
             const catFilterTrigger = document.getElementById('cat-filter-trigger');
@@ -2394,7 +2579,7 @@
                 cy.batch(() => {
                     cy.elements().removeClass('faded').removeClass('highlighted').removeClass('search-match')
                         .removeClass('cross-glow').removeClass('walk-active').removeClass('walk-trail')
-                        .removeClass('domain-match').removeClass('cat-hidden').removeClass('path-end').removeClass('path-node')
+                        .removeClass('domain-match').removeClass('cat-hidden').removeClass('ch-hidden').removeClass('path-end').removeClass('path-node')
                         .removeClass('path-edge').removeClass('similar-match').removeClass('kb-selected');
                 });
                 searchInput.value = '';
@@ -3001,6 +3186,11 @@
                 catFilterSearch.value = '';
                 renderCatFilterList();
                 requestAnimationFrame(() => catFilterSearch.focus());
+                // Close channel filter if open
+                if (chFilterOpen) {
+                    chFilterOpen = false;
+                    chFilterDropdown.classList.remove('open');
+                }
             }
 
             function closeCatDropdown() {
@@ -3041,6 +3231,22 @@
                 catFilterTrigger.style.borderColor = '';
                 catFilterActivePills.innerHTML = '';
                 closeCatDropdown();
+            });
+
+            // Channel filter hooks
+            _escapeHooks.push(() => {
+                chFilterOpen = false;
+                chFilterDropdown.classList.remove('open');
+            });
+
+            _resetHooks.push(() => {
+                channelNodes.forEach(ch => visibleChannels.add(ch.data.id));
+                renderChFilterList();
+                chFilterLabel.textContent = 'CHANNELS';
+                chFilterLabel.style.color = '';
+                chFilterTrigger.style.borderColor = '';
+                chFilterOpen = false;
+                chFilterDropdown.classList.remove('open');
             });
 
             // ─── Apply Auto-Tags Button ───
