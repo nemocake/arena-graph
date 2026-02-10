@@ -525,6 +525,7 @@
             <span id="tooltip-type" class="font-mono text-[8px] border px-1 py-0.5" style="border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);"></span>
         </div>
         <div id="tooltip-title" class="font-mono text-[10px] text-white leading-tight truncate"></div>
+        <div id="tooltip-text" class="font-sans text-[9px] text-gray-400 mt-1.5 leading-relaxed italic hidden" style="display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;"></div>
         <div class="font-mono text-[8px] text-gray-600 mt-1">click to inspect</div>
     </div>
 
@@ -569,12 +570,7 @@
                 </div>
                 <button class="ctrl-btn" id="btn-fit" title="Fit to view">FIT</button>
                 <button class="ctrl-btn" id="btn-reset" title="Reset view">RST</button>
-                <select id="layout-select" class="ctrl-btn bg-void appearance-none pr-5 cursor-pointer" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22%3E%3Cpath d=%22M0 2l4 4 4-4%22 fill=%22%23666%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 6px center;">
-                    <option value="spiral">SPIRAL</option>
-                    <option value="concentric">RADIAL</option>
-                    <option value="circle">ORBIT</option>
-                    <option value="domain">DOMAIN</option>
-                </select>
+                <button class="ctrl-btn" id="btn-spiral" title="Spiral layout">SPIRAL</button>
                 <span class="w-2 h-2 rounded-full bg-acid animate-pulse shadow-[0_0_10px_#ccff00] ml-1"></span>
             </div>
         </header>
@@ -849,9 +845,14 @@
 
             // Build channel color map
             const channelNodes = graphData.elements.nodes.filter(n => n.data.type === 'channel');
+            const RGB_COLORS = {
+                'ch-2711353': '#ff3333', // REDgb
+                'ch-2711352': '#33ff66', // rGREENb
+                'ch-2711351': '#3388ff', // rgBLUE
+            };
             const channelColorMap = {};
             channelNodes.forEach((ch, i) => {
-                channelColorMap[ch.data.id] = CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
+                channelColorMap[ch.data.id] = RGB_COLORS[ch.data.id] || CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
             });
 
             // Assign each block a color based on its first connected channel
@@ -1214,9 +1215,8 @@
             // ─── Custom radial layout (batch rAF animation) ───
             const channelPositions = {};
             function computeSpiralLayout(animated) {
-                const chNodes = cy.nodes('[type="channel"]');
-                const numCh = chNodes.length;
-                const outerRadius = Math.max(600, numCh * 120);
+                const CENTER_ID = 'ch-2689725'; // visually intriguing
+                const RGB_IDS = ['ch-2711353', 'ch-2711352', 'ch-2711351']; // RED, GREEN, BLUE
 
                 const btc = {};
                 cy.edges().forEach(e => {
@@ -1225,13 +1225,58 @@
                     btc[tgt].push(e.data('source'));
                 });
 
+                // Count blocks in center channel to size ring 2
+                let centerBlockCount = 0;
+                cy.nodes('[type="block"]').forEach(block => {
+                    const channels = btc[block.id()] || [];
+                    if (channels.includes(CENTER_ID)) centerBlockCount++;
+                });
+                const centerMaxR = 40 + Math.sqrt(centerBlockCount) * 18;
+                const ring2Radius = centerMaxR + 300;
+
+                // Count max blocks in RGB channels to size ring 3
+                let maxRgbBlocks = 0;
+                RGB_IDS.forEach(id => {
+                    let cnt = 0;
+                    cy.nodes('[type="block"]').forEach(block => {
+                        const channels = btc[block.id()] || [];
+                        if (channels.includes(id)) cnt++;
+                    });
+                    if (cnt > maxRgbBlocks) maxRgbBlocks = cnt;
+                });
+                const rgbMaxR = 40 + Math.sqrt(maxRgbBlocks) * 18;
+                const ring3Radius = ring2Radius + rgbMaxR + 300;
+
                 // Compute all target positions first
                 const targets = new Map(); // node -> {x, y}
 
-                chNodes.forEach((ch, i) => {
-                    const angle = (2 * Math.PI * i) / numCh - Math.PI / 2;
-                    const x = Math.cos(angle) * outerRadius;
-                    const y = Math.sin(angle) * outerRadius;
+                // Ring 1: Center channel
+                const centerNode = cy.getElementById(CENTER_ID);
+                if (centerNode.length) {
+                    targets.set(centerNode, { x: 0, y: 0 });
+                    channelPositions[CENTER_ID] = { x: 0, y: 0, angle: 0 };
+                }
+
+                // Ring 2: RGB channels equally spaced (120° apart)
+                RGB_IDS.forEach((id, i) => {
+                    const node = cy.getElementById(id);
+                    if (!node.length) return;
+                    const angle = (2 * Math.PI * i) / 3 - Math.PI / 2;
+                    const x = Math.cos(angle) * ring2Radius;
+                    const y = Math.sin(angle) * ring2Radius;
+                    targets.set(node, { x, y });
+                    channelPositions[id] = { x, y, angle };
+                });
+
+                // Ring 3: All other channels equally spaced
+                const otherChannels = cy.nodes('[type="channel"]').filter(ch => {
+                    const id = ch.id();
+                    return id !== CENTER_ID && !RGB_IDS.includes(id);
+                });
+                otherChannels.forEach((ch, i) => {
+                    const angle = (2 * Math.PI * i) / otherChannels.length - Math.PI / 2;
+                    const x = Math.cos(angle) * ring3Radius;
+                    const y = Math.sin(angle) * ring3Radius;
                     targets.set(ch, { x, y });
                     channelPositions[ch.id()] = { x, y, angle };
                 });
@@ -1730,6 +1775,7 @@
             const tooltipImg = document.getElementById('tooltip-img');
             const tooltipType = document.getElementById('tooltip-type');
             const tooltipTitle = document.getElementById('tooltip-title');
+            const tooltipText = document.getElementById('tooltip-text');
             const TOOLTIP_ZOOM_THRESHOLD = 0.4;
 
             let tooltipVisible = false;
@@ -1768,6 +1814,13 @@
                     tooltipThumb.classList.remove('hidden');
                 } else {
                     tooltipThumb.classList.add('hidden');
+                }
+
+                if (nodeData.content && nodeData.class === 'Text') {
+                    tooltipText.textContent = nodeData.content;
+                    tooltipText.classList.remove('hidden');
+                } else {
+                    tooltipText.classList.add('hidden');
                 }
 
                 tooltipEl.style.left = (rPos.x + 16) + 'px';
@@ -2074,6 +2127,11 @@
                                     </div>
                                 ` : ''}
                                 <h2 class="font-display text-lg font-bold text-white leading-tight">${data.label || 'Untitled'}</h2>
+                                ${data.content ? `
+                                    <div class="mt-3 p-3 border-l-2 border-gray-700 bg-white/[0.02]">
+                                        <p class="font-sans text-sm text-gray-300 leading-relaxed italic whitespace-pre-line">${data.content}</p>
+                                    </div>
+                                ` : ''}
                                 ${data.description ? `<p class="font-sans text-xs text-gray-400 mt-2 leading-relaxed whitespace-pre-line">${data.description}</p>` : ''}
                                 ${alsoInHtml}
                             </div>
@@ -2299,60 +2357,6 @@
             // PHASE D: DATA ENRICHMENT
             // ═══════════════════════════════════════════════════
 
-            // ─── Domain Cluster Layout ───
-            function runDomainLayout() {
-                // Group blocks by domain, place domain clusters in a spiral
-                const domainGroups = {};
-                const nodomainBlocks = [];
-                cy.nodes('[type="block"]').forEach(n => {
-                    const dom = n.data('domain');
-                    if (dom) {
-                        if (!domainGroups[dom]) domainGroups[dom] = [];
-                        domainGroups[dom].push(n);
-                    } else {
-                        nodomainBlocks.push(n);
-                    }
-                });
-
-                // Sort domains by count
-                const sortedDomains = Object.entries(domainGroups)
-                    .sort((a, b) => b[1].length - a[1].length);
-
-                const numGroups = sortedDomains.length;
-                const outerRadius = Math.max(800, numGroups * 15);
-
-                // Place channel hubs in center
-                cy.nodes('[type="channel"]').forEach((ch, i) => {
-                    ch.animate({ position: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 }, duration: 600 });
-                });
-
-                // Place domain clusters
-                sortedDomains.forEach(([dom, blocks], i) => {
-                    const angle = (2 * Math.PI * i) / numGroups;
-                    const cx = Math.cos(angle) * outerRadius;
-                    const cy_pos = Math.sin(angle) * outerRadius;
-
-                    blocks.forEach((block, j) => {
-                        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-                        const r = 20 + Math.sqrt(j) * 12;
-                        const a = j * goldenAngle;
-                        block.animate({
-                            position: { x: cx + Math.cos(a) * r, y: cy_pos + Math.sin(a) * r },
-                            duration: 600,
-                        });
-                    });
-                });
-
-                // Scatter no-domain blocks in center
-                nodomainBlocks.forEach(block => {
-                    block.animate({
-                        position: { x: (Math.random() - 0.5) * 300, y: (Math.random() - 0.5) * 300 },
-                        duration: 600,
-                    });
-                });
-
-                setTimeout(() => cy.fit(null, 60), 650);
-            }
 
             // ─── Timeline Scrubber ───
             const timelineContainer = document.getElementById('timeline-container');
@@ -2643,36 +2647,11 @@
             });
 
             // ─── Layout switching ───
-            document.getElementById('layout-select').addEventListener('change', function() {
-                const name = this.value;
-
+            document.getElementById('btn-spiral').addEventListener('click', function() {
                 if (focusMode) exitFocusMode();
                 showLoading();
                 setTimeout(hideLoading, 800);
-
-                if (name === 'spiral') {
-                    computeSpiralLayout(true);
-                } else if (name === 'concentric') {
-                    cy.layout({
-                        name: 'concentric',
-                        concentric: function(n) { return n.data('type') === 'channel' ? 100 : (n.data('connectionCount') || 1); },
-                        levelWidth: function() { return 3; },
-                        animate: true,
-                        animationDuration: 600,
-                        padding: 30,
-                    }).run();
-                } else if (name === 'circle') {
-                    cy.layout({
-                        name: 'circle',
-                        animate: true,
-                        animationDuration: 600,
-                        padding: 30,
-                    }).run();
-                } else if (name === 'domain') {
-                    runDomainLayout();
-                }
-
-                // Redraw minimap after layout settles
+                computeSpiralLayout(true);
                 setTimeout(drawMinimap, 700);
             });
 

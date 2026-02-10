@@ -433,6 +433,7 @@ def build_graph(channels, blocks_by_channel):
                     "original": original,
                     "source": source_url,
                     "domain": domain,
+                    "content": block.get("content", "") if block.get("class") == "Text" else None,
                     "description": block.get("description", ""),
                     "createdAt": created_at,
                     "connectedAt": connected_at,
