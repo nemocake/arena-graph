@@ -231,40 +231,67 @@
             color: rgba(255,255,255,0.15);
         }
 
-        /* Timeline scrubber */
-        #timeline-scrubber {
-            -webkit-appearance: none;
-            appearance: none;
+        /* Timeline scrubber — overlaid dual range */
+        .timeline-track {
+            position: relative;
+            height: 20px;
+        }
+        .timeline-track::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
             height: 2px;
             background: rgba(255,255,255,0.1);
-            outline: none;
+            transform: translateY(-50%);
             border-radius: 1px;
+            pointer-events: none;
         }
-        #timeline-scrubber::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 10px;
-            height: 10px;
-            background: #ccff00;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 0 6px rgba(204,255,0,0.4);
-        }
+        #timeline-scrubber,
         #timeline-end {
             -webkit-appearance: none;
             appearance: none;
-            height: 2px;
-            background: rgba(255,255,255,0.1);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
             outline: none;
-            border-radius: 1px;
+            pointer-events: none;
         }
+        #timeline-scrubber::-webkit-slider-thumb,
         #timeline-end::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 10px;
             height: 10px;
-            background: #00f3ff;
             border-radius: 50%;
             cursor: pointer;
+            pointer-events: auto;
+        }
+        #timeline-scrubber::-webkit-slider-thumb {
+            background: #ccff00;
+            box-shadow: 0 0 6px rgba(204,255,0,0.4);
+        }
+        #timeline-end::-webkit-slider-thumb {
+            background: #00f3ff;
             box-shadow: 0 0 6px rgba(0,243,255,0.4);
+        }
+
+        /* Loading indicator */
+        @keyframes loading-pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        #graph-loading-indicator {
+            animation: loading-pulse 1.2s ease-in-out infinite;
+            transition: opacity 0.3s;
+        }
+        #graph-loading-indicator.hidden {
+            opacity: 0;
+            pointer-events: none;
+            animation: none;
         }
 
         /* Minimap */
@@ -337,21 +364,6 @@
             border-radius: 2px;
         }
 
-        /* Tag category filter */
-        .tag-cat-pill {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 8px;
-            padding: 1px 6px;
-            border: 1px solid rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.3);
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .tag-cat-pill.active {
-            border-color: rgba(255,255,255,0.2);
-            color: rgba(255,255,255,0.6);
-        }
-
         /* Category Filter Dropdown */
         #cat-filter-dropdown {
             position: absolute;
@@ -415,6 +427,9 @@
         }
 
         /* Channel Filter */
+        #ch-filter-dropdown {
+            display: none;
+        }
         #ch-filter-dropdown.open {
             display: flex;
         }
@@ -588,24 +603,6 @@
             <button class="ctrl-btn" id="btn-age" title="Age heatmap">AGE</button>
             <button class="ctrl-btn" id="btn-stats" title="Collection statistics">STATS</button>
 
-            <span class="text-gray-800">|</span>
-
-            <!-- Tag category filter -->
-            <div id="tag-cat-filter" class="flex items-center gap-1 mr-2">
-                <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mr-1">Cat</span>
-                <button class="tag-cat-pill active" data-cat="all">ALL</button>
-                <button class="tag-cat-pill" data-cat="artist" style="color:#ff3366; border-color: #ff336640;">ART</button>
-                <button class="tag-cat-pill" data-cat="medium" style="color:#00ff88; border-color: #00ff8840;">MED</button>
-                <button class="tag-cat-pill" data-cat="theme" style="color:#00f3ff; border-color: #00f3ff40;">THM</button>
-                <button class="tag-cat-pill" data-cat="source" style="color:#ff9900; border-color: #ff990040;">SRC</button>
-            </div>
-
-            <!-- Tag filter area -->
-            <div id="tag-filter-bar" class="flex items-center gap-1.5 overflow-x-auto" style="max-width: 40vw;">
-                <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mr-1">Tags</span>
-                <!-- Tag pills injected dynamically -->
-            </div>
-
             <span class="text-gray-800 ml-auto">|</span>
 
             <!-- Channel Filter Dropdown -->
@@ -614,7 +611,7 @@
                     <span id="ch-filter-label">CHANNELS</span>
                     <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
                 </button>
-                <div id="ch-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:260px; max-height:400px; z-index:50; display:none; flex-direction:column;">
+                <div id="ch-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:260px; max-height:400px; z-index:50; flex-direction:column;">
                     <!-- Header -->
                     <div class="flex items-center justify-between p-2 border-b border-white/[0.06]">
                         <span class="font-mono text-[9px] text-gray-500 uppercase tracking-widest">Toggle Channels</span>
@@ -698,9 +695,9 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <span id="timeline-start-label" class="font-mono text-[9px] text-gray-500 w-20"></span>
-                    <div class="flex-1 flex flex-col gap-1">
-                        <input type="range" id="timeline-scrubber" min="0" max="100" value="0" class="w-full">
-                        <input type="range" id="timeline-end" min="0" max="100" value="100" class="w-full">
+                    <div class="flex-1 timeline-track">
+                        <input type="range" id="timeline-scrubber" min="0" max="100" value="0">
+                        <input type="range" id="timeline-end" min="0" max="100" value="100">
                     </div>
                     <span id="timeline-end-label" class="font-mono text-[9px] text-gray-500 w-20 text-right"></span>
                 </div>
@@ -714,6 +711,8 @@
             <div class="absolute top-3 left-4 z-30 font-mono text-[9px] text-gray-700">
                 <span id="coord-display">x: 0 y: 0</span>
             </div>
+            <!-- Loading indicator -->
+            <div id="graph-loading-indicator" class="absolute top-3 left-1/2 -translate-x-1/2 z-30 font-mono text-[8px] uppercase tracking-widest text-gray-500 hidden">loading</div>
 
             <!-- Timeline toggle (top-right of viewport) -->
             <div class="absolute top-3 right-4 z-30 flex gap-1.5">
@@ -774,49 +773,6 @@
         <button class="ctrl-btn text-[9px]" id="btn-cancel-path">CANCEL</button>
     </div>
 
-    <!-- Tag Management Modal -->
-    <div id="tag-modal" class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm hidden items-center justify-center">
-        <div class="glass-panel p-5 w-80">
-            <div class="flex items-center justify-between mb-4">
-                <span class="font-mono text-[10px] text-gray-500 uppercase tracking-widest">Create Tag</span>
-                <button class="ctrl-btn text-[9px]" id="btn-close-tag-modal">X</button>
-            </div>
-            <div class="space-y-3">
-                <input type="text" id="tag-name-input" placeholder="tag name..."
-                    class="w-full bg-transparent border border-white/10 px-3 py-1.5 text-[11px] font-mono text-gray-300 placeholder-gray-600 focus:border-acid/50 focus:outline-none">
-                <div class="flex gap-2" id="tag-color-picker">
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#ff3366" style="background:#ff3366"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#00ff88" style="background:#00ff88"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#ff9900" style="background:#ff9900"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#00f3ff" style="background:#00f3ff"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#cc66ff" style="background:#cc66ff"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#ccff00" style="background:#ccff00"></button>
-                    <button class="w-6 h-6 rounded-sm border-2 border-transparent hover:border-white/50 tag-color-opt" data-color="#ff00ff" style="background:#ff00ff"></button>
-                </div>
-                <button class="ctrl-btn w-full text-center" id="btn-create-tag">CREATE</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings / Tag Export Modal -->
-    <div id="settings-modal" class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm hidden items-center justify-center">
-        <div class="glass-panel p-5 w-80">
-            <div class="flex items-center justify-between mb-4">
-                <span class="font-mono text-[10px] text-gray-500 uppercase tracking-widest">Tag Settings</span>
-                <button class="ctrl-btn text-[9px]" id="btn-close-settings">X</button>
-            </div>
-            <div class="space-y-3">
-                <button class="ctrl-btn w-full text-center" id="btn-apply-autotags" style="border-color: #ccff0040; color: #ccff00;">APPLY AUTO-TAGS</button>
-                <button class="ctrl-btn w-full text-center" id="btn-export-tags">EXPORT TAGS</button>
-                <div class="relative">
-                    <button class="ctrl-btn w-full text-center" id="btn-import-tags-trigger">IMPORT TAGS</button>
-                    <input type="file" id="import-tags-file" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer">
-                </div>
-                <button class="ctrl-btn w-full text-center text-red-400 border-red-400/30 hover:border-red-400 hover:text-red-400" id="btn-clear-tags">CLEAR ALL TAGS</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Graph Script -->
     <script>
     (function() {
@@ -828,23 +784,6 @@
             '#ff00ff', '#ffff00', '#33ccff', '#ff6633', '#66ff33',
             '#cc66ff', '#00ffcc'
         ];
-
-        // ─── Tag System (localStorage) ───
-        const TAG_STORAGE_KEY = 'arena-graph-tags';
-
-        function loadTags() {
-            try {
-                const raw = localStorage.getItem(TAG_STORAGE_KEY);
-                if (raw) return JSON.parse(raw);
-            } catch (e) { /* ignore */ }
-            return { tags: {} };
-        }
-
-        function saveTags(tagData) {
-            localStorage.setItem(TAG_STORAGE_KEY, JSON.stringify(tagData));
-        }
-
-        let tagData = loadTags();
 
         // ─── Boot sequence ───
         const bootLog = document.getElementById('boot-log');
@@ -934,10 +873,11 @@
                 }
             });
 
-            // Add color data to nodes
+            // Add color + pre-computed height data to nodes
             graphData.elements.nodes.forEach(n => {
                 if (n.data.type === 'channel') {
                     n.data.color = channelColorMap[n.data.id];
+                    n.data.height = Math.max(40, n.data.size * 0.6);
                 } else {
                     const parentChannel = blockChannelMap[n.data.id];
                     n.data.color = parentChannel ? channelColorMap[parentChannel] : '#666';
@@ -963,7 +903,7 @@
                         style: {
                             'shape': 'round-rectangle',
                             'width': 'data(size)',
-                            'height': function(ele) { return Math.max(40, ele.data('size') * 0.6); },
+                            'height': 'data(height)',
                             'background-color': '#0a0a0a',
                             'background-opacity': 0.9,
                             'border-color': 'data(color)',
@@ -1236,7 +1176,7 @@
                     {
                         selector: 'edge.constellation-edge',
                         style: {
-                            'line-color': '#ccff0050',
+                            'line-color': '#ccff00',
                             'width': 0.5,
                             'line-style': 'dashed',
                             'opacity': 0.5,
@@ -1259,7 +1199,9 @@
                 pixelRatio: 1,
                 textureOnViewport: true,
                 hideEdgesOnViewport: true,
+                hideLabelsOnViewport: true,
                 motionBlur: false,
+                wheelSensitivity: 0.3,
                 boxSelectionEnabled: false,
                 autoungrabify: false,
                 minZoom: 0.05,
@@ -1570,6 +1512,22 @@
             const EDGE_CULL_THRESHOLD = 0.25;
             let edgesCulled = false;
 
+            // Pre-compute single-connection edges for fast culling
+            const singleConnectionEdges = cy.edges().filter(e => {
+                const tgt = cy.getElementById(e.data('target'));
+                return tgt.length && (tgt.data('connectionCount') || 1) === 1;
+            });
+
+            // Loading indicator
+            const _loadingEl = document.getElementById('graph-loading-indicator');
+            let _loadingCount = 0;
+            function showLoading() {
+                if (++_loadingCount === 1) _loadingEl.classList.remove('hidden');
+            }
+            function hideLoading() {
+                if (--_loadingCount <= 0) { _loadingCount = 0; _loadingEl.classList.add('hidden'); }
+            }
+
             // Image preload queue (max 5 concurrent)
             const preloadedImages = new Set();
             const MAX_CONCURRENT_PRELOADS = 5;
@@ -1583,6 +1541,7 @@
                     const img = new Image();
                     img.onload = img.onerror = () => {
                         _preloadActive--;
+                        if (_preloadActive === 0 && _preloadQueue.length === 0) hideLoading();
                         _processPreloadQueue();
                     };
                     img.src = src;
@@ -1595,6 +1554,7 @@
                     n.data('thumb') &&
                     !preloadedImages.has(n.id())
                 );
+                if (toPreload.length > 0) showLoading();
                 toPreload.slice(0, 50).forEach(n => {
                     preloadedImages.add(n.id());
                     _preloadQueue.push(n.data('thumb'));
@@ -1634,27 +1594,26 @@
                     edgesCulled = shouldCullEdges;
                     cy.batch(() => {
                         if (shouldCullEdges) {
-                            cy.edges().forEach(e => {
-                                const tgt = cy.getElementById(e.data('target'));
-                                if (tgt.length && (tgt.data('connectionCount') || 1) === 1) {
-                                    e.addClass('culled');
-                                }
-                            });
+                            singleConnectionEdges.addClass('culled');
                         } else {
-                            cy.edges('.culled').removeClass('culled');
+                            singleConnectionEdges.removeClass('culled');
                         }
                     });
                 }
             }
 
-            // Debounced LOD on zoom AND pan
-            let lodTimeout;
-            function debouncedLOD() {
-                clearTimeout(lodTimeout);
-                lodTimeout = setTimeout(updateLOD, 150);
+            // RAF-throttled LOD on zoom AND pan (fires at most once per frame)
+            let _lodRafPending = false;
+            function throttledLOD() {
+                if (_lodRafPending) return;
+                _lodRafPending = true;
+                requestAnimationFrame(() => {
+                    _lodRafPending = false;
+                    updateLOD();
+                });
             }
-            cy.on('zoom', debouncedLOD);
-            cy.on('pan', debouncedLOD);
+            cy.on('zoom', throttledLOD);
+            cy.on('pan', throttledLOD);
 
             // ─── Double-click focus mode (channel isolation) ───
             let focusMode = false;
@@ -1775,6 +1734,7 @@
 
             let tooltipVisible = false;
             let _tooltipRafPending = false;
+            let _tooltipHideTimeout = null;
 
             cy.on('mousemove', function(e) {
                 if (!tooltipVisible || _tooltipRafPending) return;
@@ -1788,16 +1748,43 @@
                 });
             });
 
+            function hideTooltip() {
+                tooltipEl.style.opacity = '0';
+                tooltipVisible = false;
+                _tooltipHideTimeout = setTimeout(() => {
+                    tooltipEl.classList.add('hidden');
+                }, 150);
+            }
+
+            function showTooltip(nodeData, rPos) {
+                // Cancel any pending hide
+                clearTimeout(_tooltipHideTimeout);
+                const typeIcons = { 'Image': 'IMG', 'Link': 'LNK', 'Media': 'MDA', 'Text': 'TXT', 'Attachment': 'ATT' };
+                tooltipType.textContent = typeIcons[nodeData.class] || 'BLK';
+                tooltipTitle.textContent = nodeData.label || 'Untitled';
+
+                if (nodeData.thumb && nodeData.class === 'Image') {
+                    tooltipImg.src = nodeData.thumb;
+                    tooltipThumb.classList.remove('hidden');
+                } else {
+                    tooltipThumb.classList.add('hidden');
+                }
+
+                tooltipEl.style.left = (rPos.x + 16) + 'px';
+                tooltipEl.style.top = (rPos.y + 16) + 'px';
+                tooltipEl.classList.remove('hidden');
+                tooltipEl.style.opacity = '1';
+                tooltipVisible = true;
+            }
+
             // ─── Interactions ───
 
-            // Hover: highlight neighborhood + tooltip (throttled)
+            // Hover: highlight neighborhood + tooltip
             let hoverTimeout;
-            let lastHoverTime = 0;
+
             cy.on('mouseover', 'node', function(e) {
                 clearTimeout(hoverTimeout);
-                const now = Date.now();
-                if (now - lastHoverTime < 50) return;
-                lastHoverTime = now;
+                clearTimeout(_tooltipHideTimeout);
 
                 if (!focusMode && !crossLinksActive) {
                     highlightNeighborhood(e.target);
@@ -1806,39 +1793,18 @@
                 // Show tooltip when zoomed in enough
                 const nodeData = e.target.data();
                 if (nodeData.type === 'block' && cy.zoom() >= TOOLTIP_ZOOM_THRESHOLD) {
-                    const typeIcons = { 'Image': 'IMG', 'Link': 'LNK', 'Media': 'MDA', 'Text': 'TXT', 'Attachment': 'ATT' };
-                    tooltipType.textContent = typeIcons[nodeData.class] || 'BLK';
-                    tooltipTitle.textContent = nodeData.label || 'Untitled';
-
-                    if (nodeData.thumb && nodeData.class === 'Image') {
-                        tooltipImg.src = nodeData.thumb;
-                        tooltipThumb.classList.remove('hidden');
-                    } else {
-                        tooltipThumb.classList.add('hidden');
-                    }
-
-                    const rPos = e.renderedPosition;
-                    tooltipEl.style.left = (rPos.x + 16) + 'px';
-                    tooltipEl.style.top = (rPos.y + 16) + 'px';
-                    tooltipEl.classList.remove('hidden');
-                    tooltipEl.style.opacity = '1';
-                    tooltipVisible = true;
+                    showTooltip(nodeData, e.renderedPosition);
                 }
             });
 
             cy.on('mouseout', 'node', function() {
                 hoverTimeout = setTimeout(() => {
-                    if (!focusMode && !crossLinksActive && !activeTagFilter) {
+                    if (!focusMode && !crossLinksActive) {
                         clearHighlight();
                     }
                 }, 120);
 
-                // Hide tooltip
-                tooltipEl.style.opacity = '0';
-                setTimeout(() => {
-                    tooltipEl.classList.add('hidden');
-                    tooltipVisible = false;
-                }, 150);
+                hideTooltip();
             });
 
             // Track last highlighted set for targeted cleanup (perf: avoids touching all 4752 elements)
@@ -2004,220 +1970,6 @@
                 }
             });
 
-            // ═══════════════════════════════════════════════════
-            // PHASE C: TAGGING SYSTEM
-            // ═══════════════════════════════════════════════════
-
-            function getBlockTags(blockId) {
-                const tags = [];
-                for (const [name, tag] of Object.entries(tagData.tags)) {
-                    if (tag.blocks.includes(blockId)) {
-                        tags.push({ name, color: tag.color });
-                    }
-                }
-                return tags;
-            }
-
-            function addTagToBlock(tagName, blockId) {
-                if (!tagData.tags[tagName]) return;
-                if (!tagData.tags[tagName].blocks.includes(blockId)) {
-                    tagData.tags[tagName].blocks.push(blockId);
-                    saveTags(tagData);
-                    applyTagVisuals();
-                }
-            }
-
-            function removeTagFromBlock(tagName, blockId) {
-                if (!tagData.tags[tagName]) return;
-                tagData.tags[tagName].blocks = tagData.tags[tagName].blocks.filter(id => id !== blockId);
-                saveTags(tagData);
-                applyTagVisuals();
-            }
-
-            function createTag(name, color) {
-                tagData.tags[name] = { color, blocks: [] };
-                saveTags(tagData);
-                renderTagFilterBar();
-            }
-
-            function deleteTag(name) {
-                delete tagData.tags[name];
-                saveTags(tagData);
-                applyTagVisuals();
-                renderTagFilterBar();
-            }
-
-            function applyTagVisuals() {
-                cy.batch(() => {
-                    // Clear all tag visuals
-                    cy.nodes('.tagged').removeClass('tagged');
-                    cy.nodes().removeStyle('border-color');
-
-                    // Apply tag ring colors
-                    for (const [name, tag] of Object.entries(tagData.tags)) {
-                        tag.blocks.forEach(blockId => {
-                            const node = cy.getElementById(blockId);
-                            if (node.length) {
-                                node.addClass('tagged');
-                                node.style('border-color', tag.color);
-                            }
-                        });
-                    }
-                });
-            }
-
-            let activeTagFilter = null;
-
-            function renderTagFilterBar() {
-                const bar = document.getElementById('tag-filter-bar');
-                // Keep the label
-                bar.innerHTML = '<span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mr-1">Tags</span>';
-
-                for (const [name, tag] of Object.entries(tagData.tags)) {
-                    const pill = document.createElement('button');
-                    pill.className = 'tag-pill';
-                    pill.style.background = tag.color + '20';
-                    pill.style.color = tag.color;
-                    pill.style.border = '1px solid ' + tag.color + '40';
-                    pill.textContent = name + ' (' + tag.blocks.length + ')';
-                    if (activeTagFilter === name) {
-                        pill.style.background = tag.color + '40';
-                        pill.style.borderColor = tag.color;
-                    }
-                    pill.addEventListener('click', () => {
-                        if (activeTagFilter === name) {
-                            activeTagFilter = null;
-                            cy.batch(() => {
-                                cy.elements().removeClass('faded');
-                            });
-                        } else {
-                            activeTagFilter = name;
-                            cy.batch(() => {
-                                cy.elements().addClass('faded');
-                                cy.nodes('[type="channel"]').removeClass('faded');
-                                tag.blocks.forEach(bid => {
-                                    const node = cy.getElementById(bid);
-                                    if (node.length) {
-                                        node.removeClass('faded');
-                                        node.connectedEdges().removeClass('faded');
-                                    }
-                                });
-                            });
-                        }
-                        renderTagFilterBar();
-                    });
-                    bar.appendChild(pill);
-                }
-
-                // "+ NEW" button
-                const addBtn = document.createElement('button');
-                addBtn.className = 'tag-pill';
-                addBtn.style.color = 'rgba(255,255,255,0.3)';
-                addBtn.style.border = '1px dashed rgba(255,255,255,0.15)';
-                addBtn.textContent = '+ NEW';
-                addBtn.addEventListener('click', openTagModal);
-                bar.appendChild(addBtn);
-
-                // Settings button
-                const settingsBtn = document.createElement('button');
-                settingsBtn.className = 'tag-pill';
-                settingsBtn.style.color = 'rgba(255,255,255,0.2)';
-                settingsBtn.style.border = '1px solid rgba(255,255,255,0.08)';
-                settingsBtn.textContent = '...';
-                settingsBtn.addEventListener('click', () => {
-                    document.getElementById('settings-modal').classList.remove('hidden');
-                    document.getElementById('settings-modal').classList.add('flex');
-                });
-                bar.appendChild(settingsBtn);
-            }
-
-            // Tag modal
-            let selectedTagColor = '#ff3366';
-
-            function openTagModal() {
-                document.getElementById('tag-modal').classList.remove('hidden');
-                document.getElementById('tag-modal').classList.add('flex');
-                document.getElementById('tag-name-input').value = '';
-                document.getElementById('tag-name-input').focus();
-                // Reset color selection
-                document.querySelectorAll('.tag-color-opt').forEach(btn => {
-                    btn.style.borderColor = btn.dataset.color === selectedTagColor ? '#fff' : 'transparent';
-                });
-            }
-
-            document.querySelectorAll('.tag-color-opt').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    selectedTagColor = btn.dataset.color;
-                    document.querySelectorAll('.tag-color-opt').forEach(b => {
-                        b.style.borderColor = b.dataset.color === selectedTagColor ? '#fff' : 'transparent';
-                    });
-                });
-            });
-
-            document.getElementById('btn-create-tag').addEventListener('click', () => {
-                const name = document.getElementById('tag-name-input').value.trim().toLowerCase();
-                if (name && !tagData.tags[name]) {
-                    createTag(name, selectedTagColor);
-                    document.getElementById('tag-modal').classList.add('hidden');
-                    document.getElementById('tag-modal').classList.remove('flex');
-                }
-            });
-
-            document.getElementById('btn-close-tag-modal').addEventListener('click', () => {
-                document.getElementById('tag-modal').classList.add('hidden');
-                document.getElementById('tag-modal').classList.remove('flex');
-            });
-
-            // Settings modal
-            document.getElementById('btn-close-settings').addEventListener('click', () => {
-                document.getElementById('settings-modal').classList.add('hidden');
-                document.getElementById('settings-modal').classList.remove('flex');
-            });
-
-            document.getElementById('btn-export-tags').addEventListener('click', () => {
-                const blob = new Blob([JSON.stringify(tagData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'arena-graph-tags.json';
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-
-            document.getElementById('import-tags-file').addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try {
-                        const imported = JSON.parse(ev.target.result);
-                        if (imported.tags) {
-                            tagData = imported;
-                            saveTags(tagData);
-                            applyTagVisuals();
-                            renderTagFilterBar();
-                        }
-                    } catch (err) {
-                        console.error('Failed to import tags:', err);
-                    }
-                };
-                reader.readAsText(file);
-                e.target.value = '';
-            });
-
-            document.getElementById('btn-clear-tags').addEventListener('click', () => {
-                tagData = { tags: {} };
-                saveTags(tagData);
-                applyTagVisuals();
-                renderTagFilterBar();
-                document.getElementById('settings-modal').classList.add('hidden');
-                document.getElementById('settings-modal').classList.remove('flex');
-            });
-
-            // Initialize tag UI
-            renderTagFilterBar();
-            applyTagVisuals();
-
             // ─── Detail panel ───
             const detailPanel = document.getElementById('detail-panel');
             const detailContent = document.getElementById('detail-content');
@@ -2305,21 +2057,6 @@
                         `;
                     }
 
-                    // Tag pills for this block
-                    const blockTags = getBlockTags(data.id);
-                    const tagPillsHtml = blockTags.map(t =>
-                        `<span class="tag-pill" style="background:${t.color}20; color:${t.color}; border: 1px solid ${t.color}40;">
-                            ${t.name} <span class="remove-tag cursor-pointer ml-1 opacity-50 hover:opacity-100" data-tag="${t.name}" data-block="${data.id}">&times;</span>
-                        </span>`
-                    ).join('');
-
-                    // Available tags to add
-                    const availableTags = Object.entries(tagData.tags)
-                        .filter(([name]) => !blockTags.find(t => t.name === name))
-                        .map(([name, tag]) =>
-                            `<span class="tag-pill add-tag cursor-pointer opacity-50 hover:opacity-100" style="color:${tag.color}; border: 1px dashed ${tag.color}40;" data-tag="${name}" data-block="${data.id}">+ ${name}</span>`
-                        ).join('');
-
                     html = `
                         <div class="space-y-4">
                             <div>
@@ -2339,15 +2076,6 @@
                                 <h2 class="font-display text-lg font-bold text-white leading-tight">${data.label || 'Untitled'}</h2>
                                 ${data.description ? `<p class="font-sans text-xs text-gray-400 mt-2 leading-relaxed whitespace-pre-line">${data.description}</p>` : ''}
                                 ${alsoInHtml}
-                            </div>
-
-                            <!-- Tags -->
-                            <div class="border-t border-dashed border-gray-800 pt-3">
-                                <div class="font-mono text-[9px] text-gray-600 uppercase tracking-widest mb-2">Tags</div>
-                                <div class="flex flex-wrap gap-1.5" id="detail-tags">
-                                    ${tagPillsHtml}
-                                    ${availableTags}
-                                </div>
                             </div>
 
                             <!-- Auto-Tags -->
@@ -2382,18 +2110,24 @@
                                     ${domainHtml}
                                 </div>
                             </div>
-                            <div class="flex gap-2">
-                                ${data.source ? `
-                                    <a href="${data.source}" target="_blank" rel="noopener"
-                                       class="ctrl-btn flex-1 text-center">
-                                        VIEW SOURCE
-                                    </a>
-                                ` : ''}
-                                ${(data.autoTags && data.autoTags.length > 0) ? `
-                                    <button class="ctrl-btn flex-1 text-center" id="btn-find-similar" style="border-color:#cc66ff40; color:#cc66ff;">
-                                        FIND SIMILAR
-                                    </button>
-                                ` : ''}
+                            <div class="flex flex-col gap-2">
+                                <a href="https://www.are.na/block/${data.id.replace('bl-', '')}" target="_blank" rel="noopener"
+                                   class="ctrl-btn text-center" style="border-color:#ff990040; color:#ff9900;">
+                                    VIEW ARE.NA BLOCK
+                                </a>
+                                <div class="flex gap-2">
+                                    ${data.source ? `
+                                        <a href="${data.source}" target="_blank" rel="noopener"
+                                           class="ctrl-btn flex-1 text-center">
+                                            VIEW SOURCE
+                                        </a>
+                                    ` : ''}
+                                    ${(data.autoTags && data.autoTags.length > 0) ? `
+                                        <button class="ctrl-btn flex-1 text-center" id="btn-find-similar" style="border-color:#cc66ff40; color:#cc66ff;">
+                                            FIND SIMILAR
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -2401,26 +2135,6 @@
 
                 detailContent.innerHTML = html;
                 detailPanel.classList.add('open');
-
-                // Bind tag interaction events
-                detailContent.querySelectorAll('.remove-tag').forEach(el => {
-                    el.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        removeTagFromBlock(el.dataset.tag, el.dataset.block);
-                        // Re-render panel with current data
-                        const nodeData = cy.getElementById(data.id).data();
-                        if (nodeData) showDetail(nodeData);
-                    });
-                });
-
-                detailContent.querySelectorAll('.add-tag').forEach(el => {
-                    el.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        addTagToBlock(el.dataset.tag, el.dataset.block);
-                        const nodeData = cy.getElementById(data.id).data();
-                        if (nodeData) showDetail(nodeData);
-                    });
-                });
 
                 // Bind "Also in" channel links
                 detailContent.querySelectorAll('[data-channel]').forEach(el => {
@@ -2461,8 +2175,6 @@
                     });
                 });
 
-                // Update tag bar
-                renderTagFilterBar();
             }
 
             function closeDetail() {
@@ -2477,10 +2189,6 @@
                 if (e.key === 'Escape') {
                     closeDetail();
                     // Close modals too
-                    document.getElementById('tag-modal').classList.add('hidden');
-                    document.getElementById('tag-modal').classList.remove('flex');
-                    document.getElementById('settings-modal').classList.add('hidden');
-                    document.getElementById('settings-modal').classList.remove('flex');
                     document.getElementById('stats-modal').classList.add('hidden');
                     document.getElementById('stats-modal').classList.remove('flex');
                     _escapeHooks.forEach(fn => fn());
@@ -2574,7 +2282,6 @@
                     crossLinksActive = false;
                     btnCrosslinks.classList.remove('active');
                 }
-                activeTagFilter = null;
                 clearHighlight();
                 cy.batch(() => {
                     cy.elements().removeClass('faded').removeClass('highlighted').removeClass('search-match')
@@ -2586,7 +2293,6 @@
                 _resetHooks.forEach(fn => fn());
                 cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 400 });
                 closeDetail();
-                renderTagFilterBar();
             });
 
             // ═══════════════════════════════════════════════════
@@ -2941,6 +2647,8 @@
                 const name = this.value;
 
                 if (focusMode) exitFocusMode();
+                showLoading();
+                setTimeout(hideLoading, 800);
 
                 if (name === 'spiral') {
                     computeSpiralLayout(true);
@@ -2973,7 +2681,6 @@
             // ═══════════════════════════════════════════════════
 
             const autoTagIndex = meta.autoTagIndex || {};
-            let activeTagCategory = 'all';
 
             // ─── Category Filter: Build sorted lists ───
             const catColors = {
@@ -3063,11 +2770,9 @@
                     set.add(item.key);
                 }
 
-                activeTagFilter = null;
                 applyCatFilters();
                 renderCatFilterList();
                 renderCatFilterPills();
-                renderTagFilterBar();
             }
 
             // Apply all active filters: union within category, intersection across categories
@@ -3163,7 +2868,6 @@
                 catFilterTrigger.style.borderColor = '';
                 catFilterActivePills.innerHTML = '';
                 renderCatFilterList();
-                renderTagFilterBar();
             }
 
             // programmatic add (used by detail panel clicks)
@@ -3173,11 +2877,9 @@
                 const cat = item.cat;
                 if (!activeCatFilters.has(cat)) activeCatFilters.set(cat, new Set());
                 activeCatFilters.get(cat).add(item.key);
-                activeTagFilter = null;
                 applyCatFilters();
                 renderCatFilterList();
                 renderCatFilterPills();
-                renderTagFilterBar();
             }
 
             function openCatDropdown() {
@@ -3248,129 +2950,6 @@
                 chFilterOpen = false;
                 chFilterDropdown.classList.remove('open');
             });
-
-            // ─── Apply Auto-Tags Button ───
-            document.getElementById('btn-apply-autotags').addEventListener('click', () => {
-                const catColors = {
-                    artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900'
-                };
-                let added = 0;
-                for (const [tagKey, blockIds] of Object.entries(autoTagIndex)) {
-                    if (blockIds.length < 3) continue; // Only tags with 3+ blocks
-                    if (tagData.tags[tagKey]) continue; // Already exists
-                    const cat = tagKey.split(':')[0];
-                    const color = catColors[cat] || '#ccff00';
-                    tagData.tags[tagKey] = { color, blocks: blockIds };
-                    added++;
-                }
-                saveTags(tagData);
-                applyTagVisuals();
-                renderTagFilterBar();
-                document.getElementById('settings-modal').classList.add('hidden');
-                document.getElementById('settings-modal').classList.remove('flex');
-            });
-
-            // ─── Tag Category Filter ───
-            document.querySelectorAll('.tag-cat-pill').forEach(pill => {
-                pill.addEventListener('click', () => {
-                    activeTagCategory = pill.dataset.cat;
-                    document.querySelectorAll('.tag-cat-pill').forEach(p => p.classList.remove('active'));
-                    pill.classList.add('active');
-                    renderTagFilterBar();
-                });
-            });
-
-            // Patch renderTagFilterBar to respect category filter
-            const _origRenderTagFilterBar = renderTagFilterBar;
-            renderTagFilterBar = function() {
-                const bar = document.getElementById('tag-filter-bar');
-                bar.innerHTML = '<span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mr-1">Tags</span>';
-
-                const entries = Object.entries(tagData.tags).filter(([name]) => {
-                    if (activeTagCategory === 'all') return true;
-                    return name.startsWith(activeTagCategory + ':');
-                });
-
-                // Sort by block count descending, limit display to 50
-                entries.sort((a, b) => b[1].blocks.length - a[1].blocks.length);
-                const limited = entries.slice(0, 50);
-
-                for (const [name, tag] of limited) {
-                    const pill = document.createElement('button');
-                    pill.className = 'tag-pill';
-                    pill.style.background = tag.color + '20';
-                    pill.style.color = tag.color;
-                    pill.style.border = '1px solid ' + tag.color + '40';
-                    pill.textContent = name + ' (' + tag.blocks.length + ')';
-                    if (activeTagFilter === name) {
-                        pill.style.background = tag.color + '40';
-                        pill.style.borderColor = tag.color;
-                    }
-                    pill.addEventListener('click', () => {
-                        // Clear category dropdown filters if active
-                        if (getCatFilterCount() > 0) {
-                            activeCatFilters.clear();
-                            cy.elements().removeClass('cat-hidden').removeClass('domain-match');
-                            catFilterLabel.textContent = 'FILTER';
-                            catFilterLabel.style.color = '';
-                            catFilterTrigger.style.borderColor = '';
-                            catFilterActivePills.innerHTML = '';
-                        }
-                        if (activeTagFilter === name) {
-                            activeTagFilter = null;
-                            clearHighlight();
-                        } else {
-                            activeTagFilter = name;
-                            clearHighlight();
-                            cy.batch(() => {
-                                const toFade = cy.elements();
-                                toFade.addClass('faded');
-                                _lastFadedSet = toFade;
-                                cy.nodes('[type="channel"]').removeClass('faded');
-                                tag.blocks.forEach(bid => {
-                                    const node = cy.getElementById(bid);
-                                    if (node.length) {
-                                        node.removeClass('faded');
-                                        node.connectedEdges().removeClass('faded');
-                                    }
-                                });
-                            });
-                        }
-                        renderTagFilterBar();
-                    });
-                    bar.appendChild(pill);
-                }
-
-                if (entries.length > 50) {
-                    const more = document.createElement('span');
-                    more.className = 'font-mono text-[8px] text-gray-600';
-                    more.textContent = `+${entries.length - 50} more`;
-                    bar.appendChild(more);
-                }
-
-                // "+ NEW" button
-                const addBtn = document.createElement('button');
-                addBtn.className = 'tag-pill';
-                addBtn.style.color = 'rgba(255,255,255,0.3)';
-                addBtn.style.border = '1px dashed rgba(255,255,255,0.15)';
-                addBtn.textContent = '+ NEW';
-                addBtn.addEventListener('click', openTagModal);
-                bar.appendChild(addBtn);
-
-                // Settings button
-                const settingsBtn = document.createElement('button');
-                settingsBtn.className = 'tag-pill';
-                settingsBtn.style.color = 'rgba(255,255,255,0.2)';
-                settingsBtn.style.border = '1px solid rgba(255,255,255,0.08)';
-                settingsBtn.textContent = '...';
-                settingsBtn.addEventListener('click', () => {
-                    document.getElementById('settings-modal').classList.remove('hidden');
-                    document.getElementById('settings-modal').classList.add('flex');
-                });
-                bar.appendChild(settingsBtn);
-            };
-            // Re-render with category support
-            renderTagFilterBar();
 
             // ═══════════════════════════════════════════════════
             // PHASE G: EXPLORATION FEATURES

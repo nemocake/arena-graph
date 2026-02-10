@@ -84,7 +84,7 @@ def api_fetch(path, token):
             )
             if attempt < MAX_RETRIES and is_retryable:
                 delay = 5 * (2 ** attempt)  # 10s, 20s, 40s, 80s
-                print(f"\n  ⚠ Retry {attempt}/{MAX_RETRIES} (HTTP {code}, waiting {delay}s)")
+                print(f"\n  ! Retry {attempt}/{MAX_RETRIES} (HTTP {code}, waiting {delay}s)")
                 time.sleep(delay)
             else:
                 raise
@@ -109,7 +109,7 @@ def save_cache(cache):
 # ─── Fetch all user channels ─────────────────────────────────────────────────
 
 def fetch_user_channels(token):
-    print("→ Fetching user channels...")
+    print("> Fetching user channels...")
     data = api_fetch(f"/users/{USER_ID}/channels?per=100", token)
     channels = data.get("channels", [])
     print(f"  Found {len(channels)} channels")
@@ -118,16 +118,26 @@ def fetch_user_channels(token):
 
 # ─── Fetch all blocks for a channel (paginated) ─────────────────────────────
 
-def fetch_channel_contents(slug, total_length, token):
-    total_pages = math.ceil(total_length / PER_PAGE)
+def fetch_channel_contents(slug, total_length, token, per_page=None):
+    if per_page is None:
+        per_page = PER_PAGE
+    total_pages = math.ceil(total_length / per_page)
     all_blocks = []
 
     for page in range(1, total_pages + 1):
-        sys.stdout.write(f"  Page {page}/{total_pages}...")
+        sys.stdout.write(f"  Page {page}/{total_pages} (per={per_page})...")
         sys.stdout.flush()
-        data = api_fetch(
-            f"/channels/{slug}/contents?per={PER_PAGE}&page={page}", token
-        )
+        try:
+            data = api_fetch(
+                f"/channels/{slug}/contents?per={per_page}&page={page}", token
+            )
+        except Exception:
+            if per_page > 10:
+                # Retry the entire channel with smaller pages
+                smaller = max(10, per_page // 5)
+                print(f"\n  ! Page size {per_page} failing, retrying channel with per={smaller}")
+                return fetch_channel_contents(slug, total_length, token, per_page=smaller)
+            raise
         contents = data.get("contents", [])
         all_blocks.extend(contents)
         print(f" {len(contents)} blocks")
@@ -312,7 +322,7 @@ def build_sorted_timestamps(seen_blocks):
     """Build sorted [timestamp_ms, block_id] array for binary search timeline."""
     entries = []
     for block_id, data in seen_blocks.items():
-        created = data.get("createdAt") or ""
+        created = data.get("connectedAt") or data.get("createdAt") or ""
         if created:
             try:
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
@@ -378,6 +388,12 @@ def build_graph(channels, blocks_by_channel):
 
             if block_id in seen_blocks:
                 seen_blocks[block_id]["connectionCount"] += 1
+                # Keep earliest connected_at across channels
+                new_connected = block.get("connected_at", "")
+                existing = seen_blocks[block_id].get("connectedAt", "")
+                if new_connected and (not existing or new_connected < existing):
+                    seen_blocks[block_id]["connectedAt"] = new_connected
+                    seen_blocks[block_id]["ts"] = compute_block_timestamp(new_connected)
             else:
                 thumb = None
                 image = block.get("image") or {}
@@ -404,7 +420,8 @@ def build_graph(channels, blocks_by_channel):
                         pass
 
                 created_at = block.get("created_at", "")
-                ts = compute_block_timestamp(created_at)
+                connected_at = block.get("connected_at", "") or created_at
+                ts = compute_block_timestamp(connected_at)
 
                 node_data = {
                     "id": block_node_id,
@@ -418,6 +435,7 @@ def build_graph(channels, blocks_by_channel):
                     "domain": domain,
                     "description": block.get("description", ""),
                     "createdAt": created_at,
+                    "connectedAt": connected_at,
                     "ts": ts,
                     "connectionCount": 1,
                 }
@@ -444,7 +462,7 @@ def build_graph(channels, blocks_by_channel):
     domain_counts = dict(sorted(domain_counts.items(), key=lambda x: -x[1]))
 
     # ─── Auto-tagging ───
-    print("  → Running auto-tagging...")
+    print("  > Running auto-tagging...")
     auto_tag_index, block_auto_tags, auto_tag_stats = auto_tag_blocks(seen_blocks, domain_counts)
     print(f"    {auto_tag_stats['uniqueTags']} unique tags, "
           f"{auto_tag_stats['totalTagged']} blocks tagged, "
@@ -457,12 +475,12 @@ def build_graph(channels, blocks_by_channel):
             node["data"]["autoTags"] = block_auto_tags[bid]
 
     # ─── Search index ───
-    print("  → Building search index...")
+    print("  > Building search index...")
     search_index = build_search_index(seen_blocks)
     print(f"    {len(search_index)} unique terms indexed")
 
     # ─── Sorted timestamps ───
-    print("  → Building sorted timestamps...")
+    print("  > Building sorted timestamps...")
     sorted_timestamps = build_sorted_timestamps(seen_blocks)
     print(f"    {len(sorted_timestamps)} timestamped blocks")
 
@@ -509,11 +527,11 @@ def main():
         length = ch.get("length", 0)
 
         if slug in cache:
-            print(f'\n✓ "{ch["title"]}" ({length} blocks) — cached')
+            print(f'\n[OK] "{ch["title"]}" ({length} blocks) — cached')
             blocks_by_channel[slug] = cache[slug]
             continue
 
-        print(f'\n→ Fetching "{ch["title"]}" ({length} blocks)...')
+        print(f'\n> Fetching "{ch["title"]}" ({length} blocks)...')
         if length == 0:
             print("  (empty channel, skipping)")
             blocks_by_channel[slug] = []
@@ -527,14 +545,14 @@ def main():
             # Cache the raw block data (save after each channel)
             cache[slug] = blocks
             save_cache(cache)
-            print(f"  ✓ Saved to cache")
+            print(f"  [OK] Saved to cache")
         except Exception as e:
-            print(f"\n  ✗ Failed to fetch {slug}: {e}")
+            print(f"\n  [ERR] Failed to fetch {slug}: {e}")
             print(f"  Skipping this channel. Re-run to retry.")
             blocks_by_channel[slug] = []
 
     # 3. Build graph
-    print("\n→ Building graph...")
+    print("\n> Building graph...")
     graph = build_graph(channels, blocks_by_channel)
 
     # 4. Write output
@@ -546,7 +564,7 @@ def main():
 
     file_size = out_path.stat().st_size
     ats = graph['meta']['autoTagStats']
-    print(f"\n✓ Graph written to {out_path} ({file_size / 1024:.0f} KB)")
+    print(f"\n[OK] Graph written to {out_path} ({file_size / 1024:.0f} KB)")
     print(f"  {graph['meta']['channelCount']} channels")
     print(f"  {graph['meta']['blockCount']} unique blocks")
     print(f"  {graph['meta']['edgeCount']} edges")
@@ -560,5 +578,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"\n✗ Error: {e}", file=sys.stderr)
+        print(f"\n[ERR] Error: {e}", file=sys.stderr)
         sys.exit(1)
