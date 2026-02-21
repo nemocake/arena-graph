@@ -153,6 +153,17 @@
                 <button class="ctrl-btn" id="btn-fit" title="Fit to view">FIT</button>
                 <button class="ctrl-btn" id="btn-reset" title="Reset view">RST</button>
                 <button class="ctrl-btn" id="btn-spiral" title="Spiral layout">SPIRAL</button>
+                <button class="ctrl-btn" id="btn-galaxy" title="Galaxy layout">GALAXY</button>
+                <button class="ctrl-btn" id="btn-sphere" title="Sphere layout">SPHERE</button>
+                <button class="ctrl-btn" id="btn-head" title="Head layout">HEAD</button>
+                <span id="head-mesh-toggles" class="inline-flex items-center gap-1 ml-0" style="display: none;">
+                    <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" id="btn-toggle-head-mesh" title="Toggle head wireframe" style="font-size:8px; padding: 2px 5px; color: #00ff88;">SKULL</button>
+                    <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" id="btn-toggle-brain-mesh" title="Toggle brain wireframe" style="font-size:8px; padding: 2px 5px; color: #ff6688;">BRAIN</button>
+                </span>
+                <button class="ctrl-btn" id="btn-orbit" title="Orbit mode">ORBIT</button>
+                <button class="ctrl-btn" id="btn-drift" title="Drift mode — orbit + morph">DRIFT</button>
+                <button class="ctrl-btn" id="btn-living" title="Living mode — breathing nodes">LIVING</button>
+                <button class="ctrl-btn" id="btn-aurora" title="Aurora mode — color waves">AURORA</button>
                 <span class="w-2 h-2 rounded-full bg-acid animate-pulse shadow-[0_0_10px_#ccff00] ml-1"></span>
             </div>
         </header>
@@ -178,6 +189,12 @@
             <button class="ctrl-btn" id="btn-constellation" title="Show tag connections">CONSTELLATE</button>
             <button class="ctrl-btn" id="btn-age" title="Age heatmap">AGE</button>
             <button class="ctrl-btn" id="btn-stats" title="Collection statistics">STATS</button>
+
+            <span class="text-gray-800">|</span>
+
+            <button class="ctrl-btn active" id="btn-toggle-minimap" title="Toggle minimap">MAP</button>
+            <button class="ctrl-btn active" id="btn-toggle-timeline" title="Toggle timeline">TIME</button>
+            <button class="ctrl-btn active" id="btn-toggle-legend" title="Toggle channel legend">LEGEND</button>
 
             <span class="text-gray-800 ml-auto">|</span>
 
@@ -231,6 +248,14 @@
             <!-- Loading Indicator -->
             <div id="graph-loading-indicator" class="absolute top-4 left-1/2 -translate-x-1/2 font-mono text-[10px] text-acid tracking-widest z-20 hidden">
                 COMPUTING...
+            </div>
+
+            <!-- Zoom Slider -->
+            <div id="zoom-slider-wrapper" class="absolute left-4 z-20 flex flex-col items-center gap-1" style="top: 50%; transform: translateY(-50%);">
+                <span class="font-mono text-[8px] text-gray-600 select-none">+</span>
+                <input type="range" id="zoom-slider" min="0" max="1000" value="500" orient="vertical"
+                    class="zoom-slider-vertical" />
+                <span class="font-mono text-[8px] text-gray-600 select-none">−</span>
             </div>
 
             <!-- Channel Legend -->

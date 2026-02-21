@@ -36,6 +36,7 @@ export class EdgeRenderer {
       this.opacityArray[i * 2 + 1] = EDGE_OPACITY;
     }
 
+    this.originalColors = new Float32Array(this.colorArray);
     this.originalOpacities = new Float32Array(this.opacityArray);
 
     const geometry = new THREE.BufferGeometry();
@@ -116,24 +117,31 @@ export class EdgeRenderer {
 
   /**
    * Fade edges not connected to visible blocks.
+   * Restores original colors for visible, near-zero for hidden.
    */
   fadeEdgesExcept(visibleBlockIndices) {
-    // Since we use material-level opacity, we adjust color alpha via vertex colors
     for (let i = 0; i < this.edgeCount; i++) {
       const edge = this.graphData.edges[i];
       const blIdx = this.graphData.blockIndexMap[edge.target];
       const visible = blIdx !== undefined && visibleBlockIndices.has(blIdx);
-      const alpha = visible ? 1.0 : 0.1;
-
-      // Dim color to simulate fade
       const baseIdx = i * 6;
-      if (!visible) {
-        this.colorArray[baseIdx] *= 0.1;
-        this.colorArray[baseIdx + 1] *= 0.1;
-        this.colorArray[baseIdx + 2] *= 0.1;
-        this.colorArray[baseIdx + 3] *= 0.1;
-        this.colorArray[baseIdx + 4] *= 0.1;
-        this.colorArray[baseIdx + 5] *= 0.1;
+
+      if (visible) {
+        // Restore original color
+        this.colorArray[baseIdx]     = this.originalColors[baseIdx];
+        this.colorArray[baseIdx + 1] = this.originalColors[baseIdx + 1];
+        this.colorArray[baseIdx + 2] = this.originalColors[baseIdx + 2];
+        this.colorArray[baseIdx + 3] = this.originalColors[baseIdx + 3];
+        this.colorArray[baseIdx + 4] = this.originalColors[baseIdx + 4];
+        this.colorArray[baseIdx + 5] = this.originalColors[baseIdx + 5];
+      } else {
+        // Near-invisible
+        this.colorArray[baseIdx]     = 0;
+        this.colorArray[baseIdx + 1] = 0;
+        this.colorArray[baseIdx + 2] = 0;
+        this.colorArray[baseIdx + 3] = 0;
+        this.colorArray[baseIdx + 4] = 0;
+        this.colorArray[baseIdx + 5] = 0;
       }
     }
     this.lineSegments.geometry.getAttribute('color').needsUpdate = true;
@@ -157,6 +165,13 @@ export class EdgeRenderer {
       this.colorArray[i * 6 + 5] = b;
     }
     this.lineSegments.geometry.getAttribute('color').needsUpdate = true;
+  }
+
+  /**
+   * Show or hide all edges.
+   */
+  setVisible(visible) {
+    this.lineSegments.visible = visible;
   }
 
   /**

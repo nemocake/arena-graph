@@ -7,6 +7,9 @@ import { NodeRenderer } from './graph/NodeRenderer.js';
 import { EdgeRenderer } from './graph/EdgeRenderer.js';
 import { ConstellationRenderer } from './graph/ConstellationRenderer.js';
 import { SpiralLayout } from './layout/SpiralLayout.js';
+import { GalaxyLayout } from './layout/GalaxyLayout.js';
+import { SphereLayout } from './layout/SphereLayout.js';
+import { HeadLayout } from './layout/HeadLayout.js';
 import { LayoutEngine } from './layout/LayoutEngine.js';
 import { Raycaster } from './interaction/Raycaster.js';
 import { TooltipManager } from './interaction/TooltipManager.js';
@@ -22,6 +25,8 @@ import { GalleryMode } from './features/GalleryMode.js';
 import { StatsPanel } from './features/StatsPanel.js';
 import { MinimapRenderer } from './features/MinimapRenderer.js';
 import { RandomWalk } from './features/RandomWalk.js';
+import { LivingMode } from './features/LivingMode.js';
+import { AuroraMode } from './features/AuroraMode.js';
 import { CHANNEL_PALETTE } from './constants.js';
 
 // ─── Boot sequence ───
@@ -107,6 +112,10 @@ async function init() {
 
   // ─── Layout ───
   const spiralLayout = new SpiralLayout();
+  const galaxyLayout = new GalaxyLayout();
+  const sphereLayout = new SphereLayout();
+  const headLayout = new HeadLayout();
+  headLayout.load(sceneManager.scene);
   const layoutEngine = new LayoutEngine(nodeRenderer, edgeRenderer, graphData);
 
   // Compute and apply initial layout
@@ -125,7 +134,7 @@ async function init() {
   // ─── Features ───
   const detailPanel = new DetailPanel(state, graphData);
   const searchEngine = new SearchEngine(state, graphData, nodeRenderer);
-  const filterEngine = new FilterEngine(state, graphData, nodeRenderer);
+  const filterEngine = new FilterEngine(state, graphData, nodeRenderer, edgeRenderer);
   const pathFinder = new PathFinder(state, graphData, nodeRenderer, edgeRenderer);
   const ageHeatmap = new AgeHeatmap(state, graphData, nodeRenderer);
   const findSimilar = new FindSimilar(state, graphData, nodeRenderer);
@@ -134,6 +143,8 @@ async function init() {
   const statsPanel = new StatsPanel(state, graphData);
   const minimapRenderer = new MinimapRenderer(nodeRenderer, sceneManager.camera, graphData);
   const randomWalk = new RandomWalk(state, graphData, nodeRenderer, cameraController);
+  const livingMode = new LivingMode(state, graphData, nodeRenderer, edgeRenderer, postProcessing);
+  const auroraMode = new AuroraMode(state, graphData, nodeRenderer, edgeRenderer, postProcessing);
 
   // ─── Mouse interaction ───
   let pickThrottle = 0;
@@ -203,10 +214,169 @@ async function init() {
   });
 
   document.getElementById('btn-spiral').addEventListener('click', () => {
+    headLayout.hideWireframe();
+    edgeRenderer.setVisible(true);
+    headModeActive = false;
+    if (headMeshToggles) headMeshToggles.style.display = 'none';
+
     const newLayout = spiralLayout.compute(graphData);
     layoutEngine.animateTo(newLayout, 600, () => {
       minimapRenderer.invalidate();
     });
+  });
+
+  // Galaxy layout
+  document.getElementById('btn-galaxy').addEventListener('click', () => {
+    headLayout.hideWireframe();
+    edgeRenderer.setVisible(true);
+    headModeActive = false;
+    if (headMeshToggles) headMeshToggles.style.display = 'none';
+
+    const newLayout = galaxyLayout.compute(graphData);
+    layoutEngine.animateTo(newLayout, 1200, () => {
+      minimapRenderer.invalidate();
+      setTimeout(() => {
+        cameraController.fitToNodes(nodeRenderer.getAllPositions());
+      }, 100);
+    });
+  });
+
+  // Sphere layout
+  document.getElementById('btn-sphere').addEventListener('click', () => {
+    headLayout.hideWireframe();
+    edgeRenderer.setVisible(true);
+    headModeActive = false;
+    if (headMeshToggles) headMeshToggles.style.display = 'none';
+
+    const newLayout = sphereLayout.compute(graphData);
+    layoutEngine.animateTo(newLayout, 1200, () => {
+      minimapRenderer.invalidate();
+      setTimeout(() => {
+        cameraController.fitToNodes(nodeRenderer.getAllPositions());
+      }, 100);
+    });
+  });
+
+  // Head layout
+  let headModeActive = false;
+  const headMeshToggles = document.getElementById('head-mesh-toggles');
+  const btnToggleHead = document.getElementById('btn-toggle-head-mesh');
+  const btnToggleBrain = document.getElementById('btn-toggle-brain-mesh');
+
+  document.getElementById('btn-head').addEventListener('click', async () => {
+    await headLayout.load(sceneManager.scene);
+    headLayout.showWireframe();
+    edgeRenderer.setVisible(false);
+    headModeActive = true;
+    if (headMeshToggles) headMeshToggles.style.display = '';
+    const newLayout = headLayout.compute(graphData);
+    layoutEngine.animateTo(newLayout, 1200, () => {
+      minimapRenderer.invalidate();
+      setTimeout(() => {
+        // Fit to nodes but shift target down so the full head is centered
+        const positions = nodeRenderer.getAllPositions();
+        const shifted = positions.map(p => ({ x: p.x, y: p.y - 490, z: p.z }));
+        cameraController.fitToNodes(shifted);
+      }, 100);
+    });
+  });
+
+  // SKULL toggle
+  if (btnToggleHead) {
+    btnToggleHead.addEventListener('click', () => {
+      const active = btnToggleHead.classList.toggle('active');
+      headLayout.setHeadVisible(active);
+    });
+  }
+
+  // BRAIN toggle
+  if (btnToggleBrain) {
+    btnToggleBrain.addEventListener('click', () => {
+      const active = btnToggleBrain.classList.toggle('active');
+      headLayout.setBrainVisible(active);
+    });
+  }
+
+  document.getElementById('btn-orbit').addEventListener('click', () => {
+    if (cameraController._orbiting) {
+      cameraController.stopOrbit();
+    } else {
+      cameraController.startOrbit(nodeRenderer.getAllPositions(), headModeActive ? 2.2 : 1.0);
+    }
+  });
+
+  // Drift mode — orbit + auto-morph between layouts
+  let driftActive = false;
+  let driftInterval = null;
+  let driftLayoutIdx = 0;
+  const driftLayouts = [
+    { name: 'spiral', fn: () => spiralLayout.compute(graphData) },
+    { name: 'galaxy', fn: () => galaxyLayout.compute(graphData) },
+    { name: 'sphere', fn: () => sphereLayout.compute(graphData) },
+    { name: 'head', fn: () => headLayout.compute(graphData) },
+  ];
+
+  function driftMorph() {
+    driftLayoutIdx = (driftLayoutIdx + 1) % driftLayouts.length;
+    const next = driftLayouts[driftLayoutIdx];
+    // Show/hide head wireframe based on current drift layout
+    if (next.name === 'head') {
+      headLayout.showWireframe();
+      edgeRenderer.setVisible(false);
+    } else {
+      headLayout.hideWireframe();
+      edgeRenderer.setVisible(true);
+    }
+    layoutEngine.animateTo(next.fn(), 2400, () => {
+      minimapRenderer.invalidate();
+    });
+  }
+
+  function startDrift() {
+    driftActive = true;
+    document.getElementById('btn-drift').classList.add('active');
+    // Use spiral's framing as the fixed orbit — it's the most spread out
+    const spiralPositions = spiralLayout.compute(graphData);
+    // Build position array from spiral layout for bounding box
+    const positions = [];
+    for (const key in spiralPositions.blockPositions) {
+      positions.push(spiralPositions.blockPositions[key]);
+    }
+    for (const chId in spiralPositions.channelPositions) {
+      positions.push(spiralPositions.channelPositions[chId]);
+    }
+    cameraController.startOrbit(positions);
+    // Lock orbit so it won't re-fit
+    driftMorph();
+    driftInterval = setInterval(driftMorph, 8000);
+  }
+
+  function stopDrift() {
+    driftActive = false;
+    headLayout.hideWireframe();
+    edgeRenderer.setVisible(true);
+    document.getElementById('btn-drift').classList.remove('active');
+    if (driftInterval) {
+      clearInterval(driftInterval);
+      driftInterval = null;
+    }
+  }
+
+  document.getElementById('btn-drift').addEventListener('click', () => {
+    if (driftActive) {
+      stopDrift();
+      cameraController.stopOrbit();
+    } else {
+      startDrift();
+    }
+  });
+
+  // Stop drift on any user interaction with the canvas
+  container.addEventListener('pointerdown', () => {
+    if (driftActive) stopDrift();
+  });
+  container.addEventListener('wheel', () => {
+    if (driftActive) stopDrift();
   });
 
   // Cross-links highlight
@@ -229,6 +399,7 @@ async function init() {
       nodeRenderer.commitAttributes();
     } else {
       nodeRenderer.resetAttributes();
+      edgeRenderer.resetColors();
     }
   });
 
@@ -267,9 +438,26 @@ async function init() {
   });
   document.getElementById('channel-legend').style.opacity = '1';
 
+  // ─── UI toggle buttons ───
+  function setupToggle(btnId, targetId, displayStyle = '') {
+    const btn = document.getElementById(btnId);
+    const target = document.getElementById(targetId);
+    btn.addEventListener('click', () => {
+      const visible = btn.classList.toggle('active');
+      target.style.display = visible ? displayStyle : 'none';
+    });
+  }
+
+  setupToggle('btn-toggle-minimap', 'minimap-canvas');
+  setupToggle('btn-toggle-legend', 'channel-legend');
+  setupToggle('btn-toggle-timeline', 'timeline-panel');
+
   // ─── Render loop additions ───
   sceneManager.onFrame((delta, elapsed) => {
     nodeRenderer.update(elapsed);
+    nodeRenderer.material.uniforms.uLiving.value = livingMode.active ? 1.0 : 0.0;
+    livingMode.update(delta);
+    auroraMode.update(delta);
     minimapRenderer.render();
   });
 

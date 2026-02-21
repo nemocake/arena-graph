@@ -5,10 +5,11 @@ import { CHANNEL_PALETTE } from '../constants.js';
  * Updates node visibility via instance attributes.
  */
 export class FilterEngine {
-  constructor(state, graphData, nodeRenderer) {
+  constructor(state, graphData, nodeRenderer, edgeRenderer) {
     this.state = state;
     this.graphData = graphData;
     this.nodeRenderer = nodeRenderer;
+    this.edgeRenderer = edgeRenderer;
 
     // --- Type filter pills ---
     const typePills = document.querySelectorAll('.type-pill');
@@ -279,8 +280,9 @@ export class FilterEngine {
       visibleIndices.add(i);
     }
 
-    // Apply visibility
+    // Apply visibility to nodes and edges
     nr.fadeAllExcept(visibleIndices);
+    this.edgeRenderer.fadeEdgesExcept(visibleIndices);
     this.state.set('visibleBlockIndices', visibleIndices);
 
     // Update timeline count

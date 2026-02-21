@@ -329,3 +329,43 @@
 #minimap-canvas {
     image-rendering: pixelated;
 }
+
+/* Vertical zoom slider */
+.zoom-slider-vertical {
+    -webkit-appearance: none;
+    appearance: none;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 4px;
+    height: 120px;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
+.zoom-slider-vertical::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccff00;
+    box-shadow: 0 0 6px rgba(204,255,0,0.4);
+    cursor: pointer;
+}
+.zoom-slider-vertical::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccff00;
+    box-shadow: 0 0 6px rgba(204,255,0,0.4);
+    border: none;
+    cursor: pointer;
+}
+.zoom-slider-vertical::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+}
+.zoom-slider-vertical::-moz-range-track {
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+}
