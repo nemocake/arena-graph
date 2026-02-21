@@ -1,3 +1,5 @@
 scripts/.env
 data/.arena-cache.json
 .DS_Store
+node_modules/
+dist/
