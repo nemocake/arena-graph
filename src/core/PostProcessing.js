@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD } from '../constants.js';
 
@@ -63,6 +64,11 @@ export class PostProcessing {
       BLOOM_THRESHOLD
     );
     this.composer.addPass(this.bloomPass);
+
+    // Afterimage (motion trails for Dream mode — starts disabled)
+    this.afterimagePass = new AfterimagePass(0.85);
+    this.afterimagePass.enabled = false;
+    this.composer.addPass(this.afterimagePass);
 
     // Scanline + Vignette
     this.scanlinePass = new ShaderPass(ScanlineVignetteShader);

@@ -152,18 +152,29 @@
                 </div>
                 <button class="ctrl-btn" id="btn-fit" title="Fit to view">FIT</button>
                 <button class="ctrl-btn" id="btn-reset" title="Reset view">RST</button>
-                <button class="ctrl-btn" id="btn-spiral" title="Spiral layout">SPIRAL</button>
-                <button class="ctrl-btn" id="btn-galaxy" title="Galaxy layout">GALAXY</button>
-                <button class="ctrl-btn" id="btn-sphere" title="Sphere layout">SPHERE</button>
-                <button class="ctrl-btn" id="btn-head" title="Head layout">HEAD</button>
+                <div class="relative" id="shape-wrapper">
+                    <button class="ctrl-btn flex items-center gap-1.5" id="shape-trigger">
+                        <span id="shape-label">SPIRAL</span>
+                        <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
+                    </button>
+                    <div id="shape-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); left:0; width:120px; z-index:50; display:none; flex-direction:column;">
+                        <button class="shape-option active" data-shape="spiral">SPIRAL</button>
+                        <button class="shape-option" data-shape="galaxy">GALAXY</button>
+                        <button class="shape-option" data-shape="sphere">SPHERE</button>
+                        <button class="shape-option" data-shape="head">HEAD</button>
+                    </div>
+                </div>
                 <span id="head-mesh-toggles" class="inline-flex items-center gap-1 ml-0" style="display: none;">
                     <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" id="btn-toggle-head-mesh" title="Toggle head wireframe" style="font-size:8px; padding: 2px 5px; color: #00ff88;">SKULL</button>
                     <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" id="btn-toggle-brain-mesh" title="Toggle brain wireframe" style="font-size:8px; padding: 2px 5px; color: #ff6688;">BRAIN</button>
                 </span>
-                <button class="ctrl-btn" id="btn-orbit" title="Orbit mode">ORBIT</button>
+                <button class="ctrl-btn" id="btn-spin" title="Spin — rotate from current view">SPIN</button>
                 <button class="ctrl-btn" id="btn-drift" title="Drift mode — orbit + morph">DRIFT</button>
                 <button class="ctrl-btn" id="btn-living" title="Living mode — breathing nodes">LIVING</button>
                 <button class="ctrl-btn" id="btn-aurora" title="Aurora mode — color waves">AURORA</button>
+                <button class="ctrl-btn" id="btn-dream" title="Dream mode — particle symphony">DREAM</button>
+                <button class="ctrl-btn" id="btn-cosmos" title="Cosmos mode — spiral galaxy">COSMOS</button>
+                <button class="ctrl-btn" id="btn-nebula" title="Nebula mode — interactive cloud">NEBULA</button>
                 <span class="w-2 h-2 rounded-full bg-acid animate-pulse shadow-[0_0_10px_#ccff00] ml-1"></span>
             </div>
         </header>
@@ -345,8 +356,95 @@
                 <div class="flex items-center gap-1 flex-wrap" id="walk-trail"></div>
             </div>
 
+            <!-- Aurora Controls Panel -->
+            <div id="aurora-panel" class="absolute top-4 right-4 z-20 glass-panel p-4 hidden" style="width: 260px;">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Aurora Controls</span>
+                    <button id="aurora-panel-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[×]</button>
+                </div>
+
+                <!-- Mode Selector -->
+                <div class="mb-3">
+                    <div class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mb-1.5">Mode</div>
+                    <div class="flex flex-wrap gap-1" id="aurora-modes">
+                        <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" data-mode="waves">WAVES</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-mode="chase">CHASE</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-mode="pulse">PULSE</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-mode="twinkle">TWINKLE</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-mode="rain">RAIN</button>
+                    </div>
+                </div>
+
+                <!-- Color Preset -->
+                <div class="mb-3">
+                    <div class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mb-1.5">Preset</div>
+                    <div class="flex flex-wrap gap-1" id="aurora-presets">
+                        <button class="ctrl-btn active text-[8px] px-1.5 py-0.5" data-preset="aurora">AURORA</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="christmas">XMAS</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="ocean">OCEAN</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="sunset">SUNSET</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="neon">NEON</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="mono">MONO</button>
+                        <button class="ctrl-btn text-[8px] px-1.5 py-0.5" data-preset="custom">CUSTOM</button>
+                    </div>
+                </div>
+
+                <!-- Custom Colors -->
+                <div id="aurora-custom-colors" class="mb-3 hidden">
+                    <div class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mb-1.5">Colors <span class="text-gray-700">(click to edit)</span></div>
+                    <div class="flex items-center gap-1.5" id="aurora-color-swatches">
+                        <label class="aurora-swatch" style="background:#00ff88;"><input type="color" value="#00ff88" class="aurora-color-input"></label>
+                        <label class="aurora-swatch" style="background:#00ccff;"><input type="color" value="#00ccff" class="aurora-color-input"></label>
+                        <label class="aurora-swatch" style="background:#6644ff;"><input type="color" value="#6644ff" class="aurora-color-input"></label>
+                        <label class="aurora-swatch" style="background:#ff00cc;"><input type="color" value="#ff00cc" class="aurora-color-input"></label>
+                        <label class="aurora-swatch" style="background:#ccff00;"><input type="color" value="#ccff00" class="aurora-color-input"></label>
+                    </div>
+                </div>
+
+                <!-- Speed -->
+                <div class="mb-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Speed</span>
+                        <span class="font-mono text-[9px] text-gray-500" id="aurora-speed-val">1.0×</span>
+                    </div>
+                    <input type="range" id="aurora-speed" min="10" max="300" value="100" class="aurora-slider">
+                </div>
+
+                <!-- Brightness -->
+                <div class="mb-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Brightness</span>
+                        <span class="font-mono text-[9px] text-gray-500" id="aurora-brightness-val">70%</span>
+                    </div>
+                    <input type="range" id="aurora-brightness" min="10" max="150" value="70" class="aurora-slider">
+                </div>
+
+                <!-- Wave Width -->
+                <div class="mb-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Spread</span>
+                        <span class="font-mono text-[9px] text-gray-500" id="aurora-spread-val">50%</span>
+                    </div>
+                    <input type="range" id="aurora-spread" min="10" max="100" value="50" class="aurora-slider">
+                </div>
+
+                <!-- Bloom -->
+                <div class="mb-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Bloom</span>
+                        <span class="font-mono text-[9px] text-gray-500" id="aurora-bloom-val">80%</span>
+                    </div>
+                    <input type="range" id="aurora-bloom" min="0" max="200" value="80" class="aurora-slider">
+                </div>
+
+                <!-- Color preview strip -->
+                <div class="mt-3 pt-2 border-t border-white/[0.06]">
+                    <div id="aurora-color-preview" class="h-2 w-full" style="background: linear-gradient(90deg, #00ff88, #00ccff, #6644ff, #ff00cc, #00ff88);"></div>
+                </div>
+            </div>
+
             <!-- Age Heatmap Legend -->
-            <div id="age-legend" class="absolute top-4 right-4 z-20 glass-panel px-3 py-2 hidden" style="width: 200px;">
+            <div id="age-legend" class="absolute top-14 right-4 z-20 glass-panel px-3 py-2 hidden" style="width: 200px;">
                 <div class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mb-2">Age Heatmap</div>
                 <div class="age-gradient mb-1"></div>
                 <div class="flex justify-between font-mono text-[8px] text-gray-600">

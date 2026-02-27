@@ -21,6 +21,7 @@ export class CameraController {
     this._flyAnim = null;
     this._orbiting = false;
     this._orbitAngle = 0;
+    this._spinning = false;
     // Current (lerped) orbit params
     this._orbitRadius = 0;
     this._orbitCenter = new THREE.Vector3();
@@ -43,9 +44,10 @@ export class CameraController {
       });
     }
 
-    // Stop orbit on any user interaction
+    // Stop orbit/spin on any user interaction
     const stopOrbit = () => {
       if (this._orbiting) this.stopOrbit();
+      if (this._spinning) this.stopSpin();
     };
     this.domElement.addEventListener('pointerdown', stopOrbit);
     this.domElement.addEventListener('wheel', stopOrbit);
@@ -54,6 +56,7 @@ export class CameraController {
       this.controls.update();
       if (this._flyAnim) this._updateFly();
       if (this._orbiting) this._updateOrbit(delta);
+      if (this._spinning) this._updateSpin(delta);
       this._updateZoom();
       this._syncSlider();
     });
@@ -175,6 +178,32 @@ export class CameraController {
     this._orbiting = false;
     const btn = document.getElementById('btn-orbit');
     if (btn) btn.classList.remove('active');
+  }
+
+  /**
+   * Spin — rotate from current camera position around the current target.
+   */
+  startSpin() {
+    this._spinning = true;
+    const btn = document.getElementById('btn-spin');
+    if (btn) btn.classList.add('active');
+  }
+
+  stopSpin() {
+    this._spinning = false;
+    const btn = document.getElementById('btn-spin');
+    if (btn) btn.classList.remove('active');
+  }
+
+  _updateSpin(delta) {
+    const target = this.controls.target;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, target);
+    const radius = Math.sqrt(offset.x * offset.x + offset.z * offset.z);
+    const angle = Math.atan2(offset.z, offset.x) + delta * 0.15;
+
+    this.camera.position.x = target.x + Math.cos(angle) * radius;
+    this.camera.position.z = target.z + Math.sin(angle) * radius;
+    this.camera.lookAt(target);
   }
 
   _updateOrbit(delta) {

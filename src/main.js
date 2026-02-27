@@ -27,6 +27,9 @@ import { MinimapRenderer } from './features/MinimapRenderer.js';
 import { RandomWalk } from './features/RandomWalk.js';
 import { LivingMode } from './features/LivingMode.js';
 import { AuroraMode } from './features/AuroraMode.js';
+import { DreamMode } from './features/DreamMode.js';
+import { CosmosMode } from './features/CosmosMode.js';
+import { NebulaMode } from './features/NebulaMode.js';
 import { CHANNEL_PALETTE } from './constants.js';
 
 // ─── Boot sequence ───
@@ -145,6 +148,9 @@ async function init() {
   const randomWalk = new RandomWalk(state, graphData, nodeRenderer, cameraController);
   const livingMode = new LivingMode(state, graphData, nodeRenderer, edgeRenderer, postProcessing);
   const auroraMode = new AuroraMode(state, graphData, nodeRenderer, edgeRenderer, postProcessing);
+  const dreamMode = new DreamMode(sceneManager, graphData, nodeRenderer, edgeRenderer, cameraController, postProcessing);
+  const cosmosMode = new CosmosMode(sceneManager, graphData, nodeRenderer, edgeRenderer, cameraController, postProcessing);
+  const nebulaMode = new NebulaMode(sceneManager, graphData, nodeRenderer, edgeRenderer, cameraController, postProcessing);
 
   // ─── Mouse interaction ───
   let pickThrottle = 0;
@@ -213,72 +219,78 @@ async function init() {
     cameraController.reset();
   });
 
-  document.getElementById('btn-spiral').addEventListener('click', () => {
-    headLayout.hideWireframe();
-    edgeRenderer.setVisible(true);
-    headModeActive = false;
-    if (headMeshToggles) headMeshToggles.style.display = 'none';
-
-    const newLayout = spiralLayout.compute(graphData);
-    layoutEngine.animateTo(newLayout, 600, () => {
-      minimapRenderer.invalidate();
-    });
-  });
-
-  // Galaxy layout
-  document.getElementById('btn-galaxy').addEventListener('click', () => {
-    headLayout.hideWireframe();
-    edgeRenderer.setVisible(true);
-    headModeActive = false;
-    if (headMeshToggles) headMeshToggles.style.display = 'none';
-
-    const newLayout = galaxyLayout.compute(graphData);
-    layoutEngine.animateTo(newLayout, 1200, () => {
-      minimapRenderer.invalidate();
-      setTimeout(() => {
-        cameraController.fitToNodes(nodeRenderer.getAllPositions());
-      }, 100);
-    });
-  });
-
-  // Sphere layout
-  document.getElementById('btn-sphere').addEventListener('click', () => {
-    headLayout.hideWireframe();
-    edgeRenderer.setVisible(true);
-    headModeActive = false;
-    if (headMeshToggles) headMeshToggles.style.display = 'none';
-
-    const newLayout = sphereLayout.compute(graphData);
-    layoutEngine.animateTo(newLayout, 1200, () => {
-      minimapRenderer.invalidate();
-      setTimeout(() => {
-        cameraController.fitToNodes(nodeRenderer.getAllPositions());
-      }, 100);
-    });
-  });
-
-  // Head layout
+  // ─── Shape dropdown ───
   let headModeActive = false;
   const headMeshToggles = document.getElementById('head-mesh-toggles');
   const btnToggleHead = document.getElementById('btn-toggle-head-mesh');
   const btnToggleBrain = document.getElementById('btn-toggle-brain-mesh');
+  const shapeTrigger = document.getElementById('shape-trigger');
+  const shapeDropdown = document.getElementById('shape-dropdown');
+  const shapeLabel = document.getElementById('shape-label');
+  let shapeOpen = false;
 
-  document.getElementById('btn-head').addEventListener('click', async () => {
-    await headLayout.load(sceneManager.scene);
-    headLayout.showWireframe();
-    edgeRenderer.setVisible(false);
-    headModeActive = true;
-    if (headMeshToggles) headMeshToggles.style.display = '';
-    const newLayout = headLayout.compute(graphData);
-    layoutEngine.animateTo(newLayout, 1200, () => {
-      minimapRenderer.invalidate();
-      setTimeout(() => {
-        // Fit to nodes but shift target down so the full head is centered
-        const positions = nodeRenderer.getAllPositions();
-        const shifted = positions.map(p => ({ x: p.x, y: p.y - 490, z: p.z }));
-        cameraController.fitToNodes(shifted);
-      }, 100);
+  shapeTrigger.addEventListener('click', () => {
+    shapeOpen = !shapeOpen;
+    shapeDropdown.classList.toggle('open', shapeOpen);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (shapeOpen && !document.getElementById('shape-wrapper').contains(e.target)) {
+      shapeOpen = false;
+      shapeDropdown.classList.remove('open');
+    }
+  });
+
+  function selectShape(shape) {
+    shapeLabel.textContent = shape.toUpperCase();
+    shapeDropdown.querySelectorAll('.shape-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.shape === shape);
     });
+    shapeOpen = false;
+    shapeDropdown.classList.remove('open');
+
+    if (shape === 'head') {
+      headLayout.load(sceneManager.scene).then(() => {
+        headLayout.showWireframe();
+        edgeRenderer.setVisible(false);
+        headModeActive = true;
+        if (headMeshToggles) headMeshToggles.style.display = '';
+        const newLayout = headLayout.compute(graphData);
+        layoutEngine.animateTo(newLayout, 1200, () => {
+          minimapRenderer.invalidate();
+          setTimeout(() => {
+            const positions = nodeRenderer.getAllPositions();
+            const shifted = positions.map(p => ({ x: p.x, y: p.y - 490, z: p.z }));
+            cameraController.fitToNodes(shifted);
+          }, 100);
+        });
+      });
+      return;
+    }
+
+    headLayout.hideWireframe();
+    edgeRenderer.setVisible(true);
+    headModeActive = false;
+    if (headMeshToggles) headMeshToggles.style.display = 'none';
+
+    const layouts = {
+      spiral: { fn: () => spiralLayout.compute(graphData), dur: 600 },
+      galaxy: { fn: () => galaxyLayout.compute(graphData), dur: 1200 },
+      sphere: { fn: () => sphereLayout.compute(graphData), dur: 1200 },
+    };
+    const { fn, dur } = layouts[shape];
+    layoutEngine.animateTo(fn(), dur, () => {
+      minimapRenderer.invalidate();
+      if (shape !== 'spiral') {
+        setTimeout(() => {
+          cameraController.fitToNodes(nodeRenderer.getAllPositions());
+        }, 100);
+      }
+    });
+  }
+
+  shapeDropdown.querySelectorAll('.shape-option').forEach(btn => {
+    btn.addEventListener('click', () => selectShape(btn.dataset.shape));
   });
 
   // SKULL toggle
@@ -297,11 +309,12 @@ async function init() {
     });
   }
 
-  document.getElementById('btn-orbit').addEventListener('click', () => {
-    if (cameraController._orbiting) {
-      cameraController.stopOrbit();
+  // Spin
+  document.getElementById('btn-spin').addEventListener('click', () => {
+    if (cameraController._spinning) {
+      cameraController.stopSpin();
     } else {
-      cameraController.startOrbit(nodeRenderer.getAllPositions(), headModeActive ? 2.2 : 1.0);
+      cameraController.startSpin();
     }
   });
 
@@ -457,7 +470,31 @@ async function init() {
     nodeRenderer.update(elapsed);
     nodeRenderer.material.uniforms.uLiving.value = livingMode.active ? 1.0 : 0.0;
     livingMode.update(delta);
-    auroraMode.update(delta);
+
+    // Aurora: skip node updates when a particle mode is active
+    const particleActive = dreamMode.active || cosmosMode.active || nebulaMode.active;
+    if (!particleActive) {
+      auroraMode.update(delta);
+    }
+
+    // Particle + Aurora integration: pipe aurora waves into active particle shader
+    if (dreamMode.active && auroraMode.active) {
+      dreamMode.setAuroraActive(true);
+      dreamMode.setAuroraWaves(auroraMode.waves);
+    } else if (dreamMode.active) {
+      dreamMode.setAuroraActive(false);
+    }
+
+    if (cosmosMode.active && auroraMode.active) {
+      cosmosMode.setAuroraActive(true);
+      cosmosMode.setAuroraWaves(auroraMode.waves);
+    } else if (cosmosMode.active) {
+      cosmosMode.setAuroraActive(false);
+    }
+
+    dreamMode.update(delta);
+    cosmosMode.update(delta);
+    nebulaMode.update(delta);
     minimapRenderer.render();
   });
 
