@@ -1,5 +1,4 @@
 import {
-  CENTER_ID, RGB_IDS,
   GOLDEN_ANGLE, BLOCK_SPREAD, BLOCK_BASE_RADIUS,
   RING_GAP, Y_UNDULATION_FREQ, Y_UNDULATION_AMP,
   RING_Y_OFFSETS,
@@ -7,15 +6,17 @@ import {
 
 /**
  * 3D golden-angle spiral layout.
- * Channels on concentric XZ rings with Y offsets.
+ * Center channel auto-detected (largest) or set via config.
+ * All other channels distributed on an outer ring.
  * Blocks spiral around their parent channel.
  */
 export class SpiralLayout {
   compute(graphData) {
     const { channels, blocks, blockToChannelsMap } = graphData;
+    const centerId = graphData.centerChannelId;
 
-    const channelPositions = {}; // channelId -> {x, y, z, angle}
-    const blockPositions = {};   // blockIndex -> {x, y, z}
+    const channelPositions = {};
+    const blockPositions = {};
 
     // Count blocks per channel
     const channelBlockCount = {};
@@ -26,46 +27,24 @@ export class SpiralLayout {
       }
     }
 
-    // --- Ring 1: Center channel ---
-    const centerIdx = channels.findIndex(c => c.id === CENTER_ID);
-    if (centerIdx >= 0) {
-      channelPositions[CENTER_ID] = { x: 0, y: RING_Y_OFFSETS[0], z: 0, angle: 0 };
+    // --- Ring 1: Center channel (auto-detected or config-specified) ---
+    if (centerId) {
+      channelPositions[centerId] = { x: 0, y: RING_Y_OFFSETS[0], z: 0, angle: 0 };
     }
 
-    // Ring 1 max radius (for sizing ring 2)
-    const centerCount = channelBlockCount[CENTER_ID] || 0;
+    // Ring 1 max radius
+    const centerCount = channelBlockCount[centerId] || 0;
     const centerMaxR = BLOCK_BASE_RADIUS + Math.sqrt(centerCount) * BLOCK_SPREAD;
-    const ring2Radius = centerMaxR + RING_GAP;
+    const outerRadius = centerMaxR + RING_GAP;
 
-    // --- Ring 2: RGB channels ---
-    const rgbIndices = RGB_IDS.map(id => channels.findIndex(c => c.id === id)).filter(i => i >= 0);
-    let maxRgbBlocks = 0;
-    for (const id of RGB_IDS) {
-      maxRgbBlocks = Math.max(maxRgbBlocks, channelBlockCount[id] || 0);
-    }
-
-    RGB_IDS.forEach((id, i) => {
-      const angle = (2 * Math.PI * i) / 3 - Math.PI / 2;
-      channelPositions[id] = {
-        x: Math.cos(angle) * ring2Radius,
-        y: RING_Y_OFFSETS[1],
-        z: Math.sin(angle) * ring2Radius,
-        angle,
-      };
-    });
-
-    // Ring 3 radius
-    const rgbMaxR = BLOCK_BASE_RADIUS + Math.sqrt(maxRgbBlocks) * BLOCK_SPREAD;
-    const ring3Radius = ring2Radius + rgbMaxR + RING_GAP;
-
-    // --- Ring 3: All other channels ---
-    const otherChannels = channels.filter(c => c.id !== CENTER_ID && !RGB_IDS.includes(c.id));
-    otherChannels.forEach((ch, i) => {
-      const angle = (2 * Math.PI * i) / otherChannels.length - Math.PI / 2;
+    // --- Outer ring: All other channels ---
+    const outerChannels = channels.filter(c => c.id !== centerId);
+    outerChannels.forEach((ch, i) => {
+      const angle = (2 * Math.PI * i) / outerChannels.length - Math.PI / 2;
       channelPositions[ch.id] = {
-        x: Math.cos(angle) * ring3Radius,
-        y: RING_Y_OFFSETS[2],
-        z: Math.sin(angle) * ring3Radius,
+        x: Math.cos(angle) * outerRadius,
+        y: RING_Y_OFFSETS[1] + (i % 2 === 0 ? 0 : RING_Y_OFFSETS[2] - RING_Y_OFFSETS[1]),
+        z: Math.sin(angle) * outerRadius,
         angle,
       };
     });

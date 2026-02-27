@@ -1,4 +1,5 @@
-import { CHANNEL_PALETTE, RGB_COLORS } from '../constants.js';
+import { CHANNEL_PALETTE } from '../constants.js';
+import config from '../config/ConfigLoader.js';
 
 /**
  * Parse JSON, build adjacency maps, lookup indices, color maps.
@@ -32,11 +33,26 @@ export class GraphData {
       }
     }
 
+    // Use config palette or default
+    const palette = config.graph?.colorPalette || CHANNEL_PALETTE;
+    const overrides = config.graph?.colorOverrides || {};
+
+    // Build slug->id map for config overrides (user provides slugs, data uses ch-{id})
+    const slugToId = {};
+    for (const ch of this.channels) {
+      if (ch.slug) slugToId[ch.slug] = ch.id;
+    }
+
     // Channel color map
     this.channelColorMap = {};
     this.channels.forEach((ch, i) => {
-      this.channelColorMap[ch.id] = RGB_COLORS[ch.id] || CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
+      // Check config overrides by slug
+      const slugColor = ch.slug && overrides[ch.slug];
+      this.channelColorMap[ch.id] = slugColor || palette[i % palette.length];
     });
+
+    // Auto-detect center channel (largest by block count, or config-specified)
+    this.centerChannelId = this._detectCenterChannel(config.graph?.centerChannel);
 
     // Block -> first channel (primary color)
     this.blockChannelMap = {};
@@ -121,6 +137,28 @@ export class GraphData {
 
   getChannelColor(channelId) {
     return this.channelColorMap[channelId] || '#666666';
+  }
+
+  /**
+   * Detect the center channel: config-specified slug, or the one with the most blocks.
+   */
+  _detectCenterChannel(configSlug) {
+    if (configSlug) {
+      // Find by slug
+      const ch = this.channels.find(c => c.slug === configSlug);
+      if (ch) return ch.id;
+    }
+    // Auto: channel with most blocks
+    let maxBlocks = 0;
+    let centerId = this.channels[0]?.id || '';
+    for (const ch of this.channels) {
+      const count = ch.blockCount || ch.size || 0;
+      if (count > maxBlocks) {
+        maxBlocks = count;
+        centerId = ch.id;
+      }
+    }
+    return centerId;
   }
 
   /**

@@ -1,100 +1,177 @@
-# arena-graph
+# arena-3d
 
-A 3D interactive graph visualization for [Are.na](https://www.are.na) channels. Renders blocks and connections as a navigable WebGL scene with bloom, fog, and custom shaders.
+3D graph visualization for [Are.na](https://www.are.na) channels and blocks. Plug in your Are.na username, fetch your data, and explore your entire collection as a navigable WebGL scene with particle modes, GPU shaders, and bloom.
 
-Currently built around my own Are.na profile, but the goal is to make this an open-source tool anyone can use to visualize their own channels.
+Built on Three.js with GLSL shaders, InstancedMesh rendering, and a full post processing pipeline. Originally made for my own Are.na at [nemocake.github.io/website/graph](https://nemocake.github.io/website/graph/index.html), now open for anyone to use.
 
-![status](https://img.shields.io/badge/status-work%20in%20progress-yellow)
+![Spiral layout](docs/screenshots/spiral.png)
+![Galaxy layout](docs/screenshots/galaxy.png)
+![Dream mode](docs/screenshots/dream.png)
+
+## Setup
+
+```bash
+git clone https://github.com/nemocake/arena-graph.git
+cd arena-3d
+npm install
+npm run setup
+npm run dev
+```
+
+The setup wizard asks for your Are.na username or channel URLs, optionally an API token, then fetches your data and generates a config file. That's it.
+
+If you'd rather skip the wizard, copy the example config and edit it yourself:
+
+```bash
+cp config/arena-3d.config.example.js config/arena-3d.config.js
+```
+
+```js
+export default {
+  arena: {
+    username: 'your-arena-username',
+    token: 'your-api-token',  // optional, recommended
+  },
+};
+```
+
+Then fetch and run:
+
+```bash
+npm run fetch
+npm run dev
+```
+
+Get an API token at [dev.are.na/oauth/applications](https://dev.are.na/oauth/applications). Not required for public channels but it gives better rate limits.
 
 ## What it does
 
 Fetches every channel and block from an Are.na account via the API, builds a graph data file, and renders a full 3D visualization with:
 
-- **Three.js/WebGL rendering** — InstancedMesh for 2300+ nodes in a single draw call, GLSL shaders with emissive glow
-- **3D spiral layout** — channels arranged on concentric rings, blocks spiral around them with golden-angle spacing
-- **Post-processing** — bloom, CRT scanlines, vignette, exponential fog
-- **GPU picking** — O(1) hover detection via offscreen color-ID render
-- **Search** — prefix-matching across a pre-built index
-- **Gallery** — grid view of visible blocks, sortable by date/name/connections
-- **Path finder** — shortest path between any two blocks (BFS)
-- **Constellation mode** — dashed edges between blocks sharing tags
-- **Category filter** — filter by artist, medium, theme, or source
-- **Channel filter** — toggle individual channels on/off
-- **Age heatmap** — color nodes by creation date (blue → red gradient)
-- **Stats panel** — type distribution, top tags, monthly histogram
-- **Minimap** — 2D canvas overlay with camera viewport
-- **Random walk** — auto-navigate through connected blocks
-- **Keyboard navigation** — arrow keys move between neighbors
+- **Three.js/WebGL rendering** with InstancedMesh for thousands of nodes in a single draw call, GLSL shaders with emissive glow
+- **4 layout modes** (spiral, galaxy, sphere, head wireframe) with animated transitions between them
+- **5 particle modes** (dream, cosmos, nebula, living, aurora) all running on the GPU
+- **Post processing** with bloom, afterimage trails, CRT scanlines, vignette, exponential fog
+- **GPU picking** for O(1) hover detection via offscreen color ID render
+- **Search** with prefix matching across a pre built index
+- **Gallery** grid view of visible blocks, sortable by date/name/connections
+- **Pathfinder** shortest path between any two blocks via BFS
+- **Constellation mode** dashed edges between blocks sharing auto detected tags
+- **Category filter** by artist, medium, theme, or source
+- **Channel filter** toggle individual channels on/off
+- **Age heatmap** color nodes by creation date, blue to red gradient
+- **Timeline scrubber** dual range slider to filter by date
+- **Stats panel** type distribution, top tags, monthly histogram
+- **Minimap** 2D canvas overlay showing camera viewport
+- **Random walk** auto navigate through connected blocks
+- **Keyboard navigation** arrow keys between neighbors
 
-## Setup
+## Layouts
 
-**Requirements:** Python 3, Node.js, and an [Are.na access token](https://dev.are.na/oauth/applications).
+**Spiral** is the default. Your largest channel sits at the center, everything else spirals out in golden angle spacing on an outer ring. Each block orbits its parent channel.
 
-1. Clone the repo and add your token:
+**Galaxy** arranges channels as logarithmic spiral arms emanating from a dense core of cross linked blocks.
 
-   ```
-   git clone https://github.com/nemocake/arena-graph.git
-   cd arena-graph
-   echo "ARENA_ACCESS_TOKEN=your_token_here" > scripts/.env
-   ```
+**Sphere** distributes everything on a Fibonacci sphere surface.
 
-2. Fetch your data:
+**Head** maps blocks onto a 3D wireframe skull and brain model. Toggle skull and brain meshes independently.
 
-   ```bash
-   python3 scripts/fetch-arena.py         # incremental (uses cache)
-   python3 scripts/fetch-arena.py --fresh  # full re-fetch
-   ```
+## Particle modes
 
-3. Install and run:
+**Dream** dissolves the graph into 4000 particles flowing through curl noise fields. Afterimage trails create motion blur. Pairs with Aurora for color modulation.
 
-   ```bash
-   npm install
-   npm run dev
-   ```
+**Cosmos** builds a rotating spiral galaxy. Keplerian orbits, polar jets, supernova pulses every 12 seconds with bloom surges. Diffraction spike fragment shader on every particle.
 
-The legacy Cytoscape.js version is still available at `graph/index.html` if you want to compare.
+**Nebula** is an interactive 3D cloud. Move your mouse and particles repel away from the cursor like magnetic repulsion. Pushed particles warm in color, mouse velocity creates a wake effect. Soft gaussian glow for a volumetric look.
+
+**Living** makes the graph breathe. Nodes oscillate in scale and drift with layered sine waves, each on its own phase.
+
+**Aurora** sends color waves flowing across all nodes. 5 wave modes (waves, chase, pulse, twinkle, rain), 7 presets (aurora, christmas, ocean, sunset, neon, mono, custom), sliders for speed, brightness, spread, and bloom. Full custom color picker.
+
+**Drift** auto orbits the camera while morphing between all four layouts. Stops on any user interaction.
+
+## Auto tagging
+
+The fetch script parses block titles and descriptions to extract tags, no ML involved:
+
+- **Artists** from "Artist Name, Work Title" patterns appearing 2+ times
+- **Mediums** via keyword matching (paper, textile, ceramic, etc.)
+- **Themes** via keyword matching (grid, pattern, landscape, etc.)
+- **Sources** from domains appearing on 5+ blocks
+
+Tags are baked into the graph JSON at build time so the browser doesn't need to do any processing.
+
+For better tags, format your block titles like `Artist Name, Work Title` or `Artist Name — Description`. See [docs/TAGGING-GUIDE.md](docs/TAGGING-GUIDE.md) for the full list of recognized keywords and tips.
+
+## Configuration
+
+Everything lives in `config/arena-3d.config.js`. The main options:
+
+| Option | What it does | Default |
+|--------|-------------|---------|
+| `arena.username` | Are.na username slug | |
+| `arena.channels` | Specific channel slugs or URLs | `[]` |
+| `arena.token` | API access token | |
+| `display.title` | Header title | `arena-3d` |
+| `display.accentColor` | UI accent color | `#ccff00` |
+| `graph.centerChannel` | Which channel sits at center | auto (largest) |
+| `graph.colorPalette` | Custom hex array for channel colors | 12 color neon palette |
+| `graph.colorOverrides` | Per channel color overrides by slug | `{}` |
+| `graph.defaultLayout` | Starting layout | `spiral` |
+
+## CLI
+
+```bash
+npm run fetch -- --username john-doe
+npm run fetch -- --channels slug1,slug2
+npm run fetch -- --token YOUR_TOKEN
+npm run fetch -- --fresh  # ignore cache, re fetch everything
+
+# python alternative
+python3 scripts/fetch-arena.py --username john-doe --token YOUR_TOKEN
+```
 
 ## Project structure
 
 ```
-scripts/fetch-arena.py       — fetches from Are.na API, builds graph JSON + auto-tags
-data/arena-graph.json        — pre-built graph data
-graph/index.html             — legacy Cytoscape.js version (single file, no build step)
-index.html                   — new entry point (HTML shell)
+config/
+  arena-3d.config.js          your config (gitignored)
+  arena-3d.config.example.js  template
+  default.config.js           default values
+scripts/
+  setup.js                    interactive setup wizard
+  fetch.js                    Node.js data fetcher
+  fetch-arena.py              Python data fetcher (alternative)
+data/
+  arena-graph.json            generated graph data (gitignored)
 src/
-  main.js                    — boot sequence, wires all systems together
-  constants.js               — palette, layout params, rendering thresholds
-  state/AppState.js           — reactive state management
-  core/                      — SceneManager, CameraController, PostProcessing
-  graph/                     — NodeRenderer, EdgeRenderer, ConstellationRenderer, GraphData
-  layout/                    — SpiralLayout, LayoutEngine
-  interaction/               — Raycaster, TooltipManager, SelectionManager, KeyboardNav
-  features/                  — DetailPanel, SearchEngine, FilterEngine, PathFinder,
-                               AgeHeatmap, FindSimilar, GalleryMode, StatsPanel,
-                               MinimapRenderer, RandomWalk
-  shaders/                   — GLSL vertex/fragment shaders (node, edge, picking, scanline)
-  utils/                     — color helpers, binary search
-  styles/main.css            — glass panels, scrollbars, overlays
+  main.js                     boot sequence, wires all systems together
+  constants.js                palette, layout params, rendering thresholds
+  config/ConfigLoader.js      loads and merges user config
+  state/AppState.js           reactive state management
+  core/                       SceneManager, CameraController, PostProcessing
+  graph/                      NodeRenderer, EdgeRenderer, ConstellationRenderer, GraphData
+  layout/                     SpiralLayout, GalaxyLayout, SphereLayout, HeadLayout, LayoutEngine
+  interaction/                Raycaster, TooltipManager, SelectionManager, KeyboardNav
+  features/                   all visual modes + search, filter, gallery, pathfinder, etc.
+  shaders/                    GLSL vertex/fragment shaders
+  styles/main.css             glass panels, scrollbars, overlays
 ```
 
-## How auto-tagging works
+## Build
 
-The fetch script parses block titles and descriptions to extract tags — no ML involved:
-
-- **Artists** — "Artist Name, Work Title" patterns
-- **Mediums** — keyword matching (paper, textile, ceramic, etc.)
-- **Themes** — keyword matching (grid, pattern, landscape, etc.)
-- **Sources** — domains that appear on 5+ blocks
-
-Tags are baked into the graph JSON at build time so the browser doesn't need to do any processing.
+```bash
+npm run build    # production build to dist/
+npm run preview  # preview it locally
+```
 
 ## Roadmap
 
-- [ ] Make the data pipeline configurable for any Are.na user/channel
-- [ ] Template mode — plug in your own Are.na token and see your graph
+- [ ] Hosted web version (paste your Are.na URL, see your graph instantly)
 - [ ] Thumbnail textures on close zoom
 - [ ] Performance LOD at distance
-- [ ] Deploy as standalone page at conradhouse.com/graph
+- [ ] Are.na partnership for better API access
+- [ ] Real time updates when blocks are added
 
 ## License
 

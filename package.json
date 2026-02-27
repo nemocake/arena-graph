@@ -1,12 +1,18 @@
 {
   "name": "arena-graph",
-  "private": true,
+  "version": "1.0.0",
+  "description": "3D graph visualization for Are.na channels and blocks",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.js",
+    "fetch": "node scripts/fetch.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
+  "keywords": ["arena", "are.na", "3d", "visualization", "knowledge-graph", "three.js", "webgl"],
+  "author": "nemocake",
+  "license": "MIT",
   "dependencies": {
     "three": "^0.170.0"
   },

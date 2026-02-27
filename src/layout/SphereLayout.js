@@ -1,5 +1,3 @@
-import { CENTER_ID, RGB_IDS } from '../constants.js';
-
 /**
  * Sphere layout — channels as orbital rings on a globe,
  * blocks distributed along each ring's latitude band.

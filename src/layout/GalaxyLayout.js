@@ -1,5 +1,3 @@
-import { CENTER_ID, RGB_IDS } from '../constants.js';
-
 /**
  * Galaxy layout — nodes arranged in logarithmic spiral arms
  * emanating from a dense core of cross-linked blocks.

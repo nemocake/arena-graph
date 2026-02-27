@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-Are.na Graph Data Fetcher
+Are.na Graph Data Fetcher (Python version)
 
-Fetches all channels and blocks for a user, outputs a Cytoscape.js-compatible
-graph JSON file at data/arena-graph.json.
-
-Uses incremental caching: already-fetched channels are saved to a cache file
-and skipped on re-run, so interrupted runs can resume.
+Fetches all channels and blocks for a user, outputs graph JSON.
 
 Usage:
-    python3 scripts/fetch-arena.py          # uses scripts/.env
-    python3 scripts/fetch-arena.py --fresh  # ignore cache, fetch everything
+    python3 scripts/fetch-arena.py --username john-doe
+    python3 scripts/fetch-arena.py --channels slug1,slug2
+    python3 scripts/fetch-arena.py --fresh    # ignore cache
 """
 
+import argparse
 import json
 import math
 import os
@@ -34,10 +32,9 @@ ROOT = SCRIPT_DIR.parent
 CACHE_PATH = ROOT / "data" / ".arena-cache.json"
 
 API_BASE = "https://api.are.na/v2"
-PER_PAGE = 50          # smaller pages = fewer timeouts
-RATE_LIMIT_S = 1.2     # 1.2s between requests
+PER_PAGE = 50
+RATE_LIMIT_S = 1.2
 MAX_RETRIES = 5
-USER_ID = 646889
 
 
 # ─── Load token ──────────────────────────────────────────────────────────────
@@ -108,11 +105,29 @@ def save_cache(cache):
 
 # ─── Fetch all user channels ─────────────────────────────────────────────────
 
-def fetch_user_channels(token):
+def fetch_user_channels(username, token):
+    print(f"> Looking up user: {username}")
+    user_data = api_fetch(f"/users/{username}", token)
+    user_id = user_data["id"]
+    print(f"  Found user ID: {user_id}")
+
     print("> Fetching user channels...")
-    data = api_fetch(f"/users/{USER_ID}/channels?per=100", token)
+    data = api_fetch(f"/users/{user_id}/channels?per=100", token)
     channels = data.get("channels", [])
     print(f"  Found {len(channels)} channels")
+    return channels, username
+
+
+def fetch_specific_channels(slugs, token):
+    print(f"> Fetching {len(slugs)} specific channels...")
+    channels = []
+    for slug in slugs:
+        try:
+            ch = api_fetch(f"/channels/{slug}", token)
+            channels.append(ch)
+            print(f'  [OK] "{ch.get("title")}" ({ch.get("length", 0)} blocks)')
+        except Exception as e:
+            print(f'  [ERR] Failed to fetch "{slug}": {e}')
     return channels
 
 
@@ -347,7 +362,7 @@ def compute_block_timestamp(created_at):
 
 # ─── Build graph ─────────────────────────────────────────────────────────────
 
-def build_graph(channels, blocks_by_channel):
+def build_graph(channels, blocks_by_channel, user_slug=""):
     nodes = []
     edges = []
     seen_blocks = {}
@@ -366,7 +381,7 @@ def build_graph(channels, blocks_by_channel):
                 "status": ch.get("status", "public"),
                 "description": (ch.get("metadata") or {}).get("description", ""),
                 "updatedAt": ch.get("updated_at", ""),
-                "arenaUrl": f"https://www.are.na/conrad-house/{ch['slug']}",
+                "arenaUrl": f"https://www.are.na/{user_slug or 'channel'}/{ch['slug']}",
                 "size": round(size, 1),
             }
         })
@@ -487,8 +502,7 @@ def build_graph(channels, blocks_by_channel):
 
     return {
         "meta": {
-            "userId": USER_ID,
-            "userSlug": "conrad-house",
+            "userSlug": user_slug,
             "fetchedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "channelCount": len(channels),
             "blockCount": len(seen_blocks),
@@ -507,21 +521,39 @@ def build_graph(channels, blocks_by_channel):
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
-    token = load_token()
-    fresh = "--fresh" in sys.argv
+    parser = argparse.ArgumentParser(description="arena-3d data fetcher")
+    parser.add_argument("--username", help="Are.na username slug")
+    parser.add_argument("--channels", help="Comma-separated channel slugs")
+    parser.add_argument("--token", help="Are.na API token")
+    parser.add_argument("--fresh", action="store_true", help="Ignore cache")
+    args = parser.parse_args()
 
-    print("Are.na Graph Fetcher")
-    print("====================\n")
+    token = args.token or load_token()
+    fresh = args.fresh
 
-    # Load cache (skip already-fetched channels)
+    print("arena-3d Data Fetcher")
+    print("=====================\n")
+
+    username = args.username or ""
+    channel_slugs = [s.strip() for s in args.channels.split(",")] if args.channels else []
+
+    if not username and not channel_slugs:
+        print("Error: Provide --username or --channels")
+        sys.exit(1)
+
+    # Load cache
     cache = {} if fresh else load_cache()
     if cache:
         print(f"  Resuming with {len(cache)} cached channels\n")
 
-    # 1. Fetch channels
-    channels = fetch_user_channels(token)
+    # Fetch channels
+    user_slug = ""
+    if username:
+        channels, user_slug = fetch_user_channels(username, token)
+    else:
+        channels = fetch_specific_channels(channel_slugs, token)
 
-    # 2. Fetch blocks per channel (with caching)
+    # Fetch blocks per channel (with caching)
     blocks_by_channel = {}
     for ch in channels:
         slug = ch["slug"]
@@ -554,7 +586,7 @@ def main():
 
     # 3. Build graph
     print("\n> Building graph...")
-    graph = build_graph(channels, blocks_by_channel)
+    graph = build_graph(channels, blocks_by_channel, user_slug)
 
     # 4. Write output
     out_dir = ROOT / "data"

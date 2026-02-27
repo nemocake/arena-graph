@@ -1,19 +1,9 @@
+// Default channel palette (overridable via config.graph.colorPalette)
 export const CHANNEL_PALETTE = [
   '#ccff00', '#00f3ff', '#ff3366', '#ff9900', '#00ff88',
   '#ff00ff', '#ffff00', '#33ccff', '#ff6633', '#66ff33',
   '#cc66ff', '#00ffcc',
 ];
-
-// Hard-coded RGB channel color overrides
-export const RGB_COLORS = {
-  'ch-2711353': '#ff3333', // RED
-  'ch-2711352': '#33ff66', // GREEN
-  'ch-2711351': '#3388ff', // BLUE
-};
-
-// Center channel (largest) and RGB ring channels
-export const CENTER_ID = 'ch-2689725'; // visually intriguing
-export const RGB_IDS = ['ch-2711353', 'ch-2711352', 'ch-2711351'];
 
 // Layout
 export const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));

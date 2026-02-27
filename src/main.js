@@ -31,6 +31,7 @@ import { DreamMode } from './features/DreamMode.js';
 import { CosmosMode } from './features/CosmosMode.js';
 import { NebulaMode } from './features/NebulaMode.js';
 import { CHANNEL_PALETTE } from './constants.js';
+import config from './config/ConfigLoader.js';
 
 // ─── Boot sequence ───
 const bootLog = document.getElementById('boot-log');
@@ -103,7 +104,7 @@ async function init() {
   // ─── Camera ───
   const cameraController = new CameraController(sceneManager);
 
-  await log('building instanced node mesh (2300+ instances)...', 200);
+  await log(`building instanced node mesh (${graphData.blocks.length}+ instances)...`, 200);
   setProgress(70, 'building nodes...');
 
   // ─── Renderers ───
@@ -432,7 +433,7 @@ async function init() {
   // ─── Channel legend ───
   const legendItems = document.getElementById('legend-items');
   graphData.channels.forEach((ch, i) => {
-    const color = CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
+    const color = graphData.channelColorMap[ch.id] || CHANNEL_PALETTE[i % CHANNEL_PALETTE.length];
     const el = document.createElement('div');
     el.className = 'flex items-center gap-2 cursor-pointer group';
     el.innerHTML = `

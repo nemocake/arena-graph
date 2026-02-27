@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="3D knowledge graph visualization of Are.na channels and blocks.">
-    <title>con.rad | graph</title>
+    <meta name="description" content="arena-3d — 3D knowledge graph visualization for Are.na channels and blocks.">
+    <title>arena-3d</title>
 
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -80,7 +80,7 @@
                 The knowledge graph needs room to breathe. Come back on a larger screen.
             </p>
             <p class="font-mono text-[10px] text-gray-600 uppercase tracking-widest">
-                sorry phone users...come back on desktop
+                WebGL + Three.js visualization — desktop only
             </p>
         </div>
     </div>
@@ -89,7 +89,7 @@
     <div id="boot-screen" class="fixed inset-0 z-[100] bg-void flex flex-col items-center justify-center transition-opacity duration-700">
         <div class="max-w-md w-full px-8">
             <div class="font-mono text-acid text-xs mb-6 animate-pulse tracking-widest">GRAPH_INIT_SEQUENCE</div>
-            <div class="font-display text-4xl font-bold tracking-tighter text-white mb-8">KNOWLEDGE<br>GRAPH</div>
+            <div class="font-display text-4xl font-bold tracking-tighter text-white mb-8">ARENA<br>3D</div>
             <div id="boot-log" class="font-mono text-[11px] text-gray-500 space-y-1 mb-8 h-28 overflow-hidden"></div>
             <div class="w-full h-[2px] bg-gray-900 rounded overflow-hidden">
                 <div id="boot-progress" class="h-full bg-acid transition-all duration-500 ease-out" style="width: 0%"></div>
@@ -120,14 +120,13 @@
         <!-- Top Bar -->
         <header class="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-void/80 backdrop-blur-md z-40 relative">
             <div class="flex items-center gap-8">
-                <a href="../index.html" class="group flex items-center gap-2">
-                    <span class="font-display font-bold text-xl tracking-tighter group-hover:text-acid transition-colors">con.rad</span>
-                    <span class="font-mono text-[9px] text-gray-600 tracking-widest">/graph</span>
-                </a>
+                <div class="group flex items-center gap-2">
+                    <span id="header-title" class="font-display font-bold text-xl tracking-tighter text-white">arena-3d</span>
+                    <span id="header-subtitle" class="font-mono text-[9px] text-gray-600 tracking-widest">/graph</span>
+                </div>
                 <nav class="flex items-center gap-5 font-mono text-[10px] tracking-wider text-gray-500">
-                    <a href="../writings/index.html" class="hover:text-acid transition-colors">WRITINGS</a>
-                    <a href="../projects/index.html" class="hover:text-acid transition-colors">PROJECTS</a>
-                    <a href="../collection/index.html" class="hover:text-acid transition-colors">COLLECTION</a>
+                    <a href="https://www.are.na" target="_blank" rel="noopener" class="hover:text-acid transition-colors">ARE.NA</a>
+                    <a href="https://github.com/nemocake/arena-graph" target="_blank" rel="noopener" class="hover:text-acid transition-colors">GITHUB</a>
                     <span class="text-acid border-b border-acid pb-px">GRAPH</span>
                 </nav>
             </div>
@@ -266,7 +265,7 @@
                 <span class="font-mono text-[8px] text-gray-600 select-none">+</span>
                 <input type="range" id="zoom-slider" min="0" max="1000" value="500" orient="vertical"
                     class="zoom-slider-vertical" />
-                <span class="font-mono text-[8px] text-gray-600 select-none">−</span>
+                <span class="font-mono text-[8px] text-gray-600 select-none">-</span>
             </div>
 
             <!-- Channel Legend -->
@@ -289,7 +288,7 @@
                     <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Timeline</span>
                     <div class="flex items-center gap-3 font-mono text-[9px]">
                         <span id="timeline-start-label" class="text-gray-500">--</span>
-                        <span class="text-gray-700">→</span>
+                        <span class="text-gray-700">&rarr;</span>
                         <span id="timeline-end-label" class="text-gray-500">--</span>
                     </div>
                 </div>
@@ -309,7 +308,7 @@
                 <div class="p-5">
                     <div class="flex items-center justify-between mb-4">
                         <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Block Inspector</span>
-                        <button id="detail-close" class="font-mono text-[10px] text-gray-500 hover:text-acid transition-colors">[×]</button>
+                        <button id="detail-close" class="font-mono text-[10px] text-gray-500 hover:text-acid transition-colors">[x]</button>
                     </div>
                     <div id="detail-content"></div>
                 </div>
@@ -329,7 +328,7 @@
                             <option value="alpha">A-Z</option>
                             <option value="connections">Connections</option>
                         </select>
-                        <button id="gallery-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[×]</button>
+                        <button id="gallery-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[x]</button>
                     </div>
                 </div>
                 <div id="gallery-grid" class="gallery-grid p-3 overflow-y-auto flex-1"></div>
@@ -340,7 +339,7 @@
                 <div class="glass-panel p-6 w-[600px] max-h-[80vh] overflow-y-auto">
                     <div class="flex items-center justify-between mb-4">
                         <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Collection Statistics</span>
-                        <button id="stats-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[×]</button>
+                        <button id="stats-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[x]</button>
                     </div>
                     <div id="stats-content"></div>
                 </div>
@@ -360,7 +359,7 @@
             <div id="aurora-panel" class="absolute top-4 right-4 z-20 glass-panel p-4 hidden" style="width: 260px;">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Aurora Controls</span>
-                    <button id="aurora-panel-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[×]</button>
+                    <button id="aurora-panel-close" class="font-mono text-[10px] text-gray-500 hover:text-acid">[x]</button>
                 </div>
 
                 <!-- Mode Selector -->
@@ -405,7 +404,7 @@
                 <div class="mb-2.5">
                     <div class="flex items-center justify-between mb-1">
                         <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest">Speed</span>
-                        <span class="font-mono text-[9px] text-gray-500" id="aurora-speed-val">1.0×</span>
+                        <span class="font-mono text-[9px] text-gray-500" id="aurora-speed-val">1.0x</span>
                     </div>
                     <input type="range" id="aurora-speed" min="10" max="300" value="100" class="aurora-slider">
                 </div>
