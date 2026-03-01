@@ -1,4 +1,4 @@
-<video src="docs/arena-graph-16x9.mp4" autoplay loop muted playsinline></video>
+![arena-graph](docs/arena-graph-16x9.gif)
 
 # arena-3d
 
