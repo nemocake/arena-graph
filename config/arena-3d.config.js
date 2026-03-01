@@ -15,8 +15,8 @@ export default {
     // Option B: Specific channel URLs or slugs
     // channels: ['my-channel-slug', 'https://www.are.na/user/another-channel'],
 
-    // API token (required for private channels, recommended for better rate limits)
-    // You can also set the ARENA_ACCESS_TOKEN environment variable instead
+    // API token (required for username mode, recommended for all use)
+    // Free to get — see docs/TOKEN-GUIDE.md for a walkthrough
     token: '',
   },
 

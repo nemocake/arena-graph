@@ -20,7 +20,9 @@ npm run setup
 npm run dev
 ```
 
-The setup wizard asks for your Are.na username or channel URLs, optionally an API token, then fetches your data and generates a config file. That's it.
+The setup wizard asks for your Are.na username or channel URLs, your API token, then fetches your data and generates a config file. That's it.
+
+You'll need a free Are.na API token. See [docs/TOKEN-GUIDE.md](docs/TOKEN-GUIDE.md) for a quick walkthrough, or grab one at [dev.are.na/oauth/applications](https://dev.are.na/oauth/applications).
 
 If you'd rather skip the wizard, copy the example config and edit it yourself:
 
@@ -32,7 +34,7 @@ cp config/arena-3d.config.example.js config/arena-3d.config.js
 export default {
   arena: {
     username: 'your-arena-username',
-    token: 'your-api-token',  // optional, recommended
+    token: 'your-api-token',  // required — see docs/TOKEN-GUIDE.md
   },
 };
 ```
@@ -44,7 +46,7 @@ npm run fetch
 npm run dev
 ```
 
-Get an API token at [dev.are.na/oauth/applications](https://dev.are.na/oauth/applications). Not required for public channels but it gives better rate limits.
+Get an API token at [dev.are.na/oauth/applications](https://dev.are.na/oauth/applications). Required for fetching by username, recommended for channel URLs. Free to create — see [docs/TOKEN-GUIDE.md](docs/TOKEN-GUIDE.md) for a step-by-step guide.
 
 ## What it does
 

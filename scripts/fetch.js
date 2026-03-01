@@ -507,9 +507,27 @@ async function main() {
     process.exit(1);
   }
 
+  if (!cfg.token && cfg.username) {
+    console.error('  Error: API token is required when fetching by username.');
+    console.error('  The Are.na API needs authentication to list a user\'s channels.');
+    console.error('');
+    console.error('  Get a free token (takes 2 minutes):');
+    console.error('    1. Go to https://dev.are.na/oauth/applications');
+    console.error('    2. Log in and click "New Application"');
+    console.error('    3. Name it anything, submit, and copy the token');
+    console.error('');
+    console.error('  Then either:');
+    console.error('    - Add it to config/arena-3d.config.js');
+    console.error('    - Pass it with: npm run fetch -- --token YOUR_TOKEN');
+    console.error('    - Set env var: ARENA_ACCESS_TOKEN=YOUR_TOKEN');
+    console.error('');
+    console.error('  Full guide: docs/TOKEN-GUIDE.md');
+    process.exit(1);
+  }
+
   if (!cfg.token) {
-    console.log('  Note: No API token set. Public channels will work, but rate limits are stricter.');
-    console.log('  Set ARENA_ACCESS_TOKEN env var or add token to config for better performance.');
+    console.log('  Note: No API token set. Rate limits may be stricter.');
+    console.log('  See docs/TOKEN-GUIDE.md for how to get one (free, takes 2 minutes).');
     console.log('');
   }
 

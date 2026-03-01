@@ -55,8 +55,29 @@ async function main() {
     process.exit(1);
   }
 
-  // Token
-  const token = await ask(rl, 'Are.na API token (get one at dev.are.na/oauth/applications, or Enter to skip)');
+  // Token (required)
+  console.log('');
+  console.log('  An API token is required to fetch your data.');
+  console.log('  It\'s free — see docs/TOKEN-GUIDE.md for a quick walkthrough.');
+  console.log('');
+  const token = await ask(rl, 'Are.na API token');
+
+  if (!token) {
+    console.log('');
+    console.log('  No token provided. You need one to continue.');
+    console.log('');
+    console.log('  How to get a token (takes 2 minutes):');
+    console.log('    1. Go to https://dev.are.na/oauth/applications');
+    console.log('    2. Log in with your Are.na account');
+    console.log('    3. Click "New Application"');
+    console.log('    4. Name it anything (e.g. "arena-3d"), submit');
+    console.log('    5. Copy the "Personal Access Token" and run setup again');
+    console.log('');
+    console.log('  Full guide: docs/TOKEN-GUIDE.md');
+    console.log('');
+    rl.close();
+    process.exit(1);
+  }
 
   // Display settings
   const title = await ask(rl, 'Page title', 'arena-3d');
