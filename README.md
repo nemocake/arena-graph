@@ -1,3 +1,5 @@
+<video src="docs/arena-graph-16x9.mp4" autoplay loop muted playsinline></video>
+
 # arena-3d
 
 3D graph visualization for [Are.na](https://www.are.na) channels and blocks. Plug in your Are.na username, fetch your data, and explore your entire collection as a navigable WebGL scene with particle modes, GPU shaders, and bloom.
