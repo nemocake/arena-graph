@@ -94,18 +94,59 @@ Fetches every channel and block from an Are.na account via the API, builds a gra
 
 **Drift** auto orbits the camera while morphing between all four layouts. Stops on any user interaction.
 
-## Auto tagging
+## FX Panel
 
-The fetch script parses block titles and descriptions to extract tags, no ML involved:
+The **FX** dropdown in the header exposes full control over the rendering pipeline. Every parameter updates in real-time.
 
-- **Artists** from "Artist Name, Work Title" patterns appearing 2+ times
-- **Mediums** via keyword matching (paper, textile, ceramic, etc.)
-- **Themes** via keyword matching (grid, pattern, landscape, etc.)
-- **Sources** from domains appearing on 5+ blocks
+**Overlays** — toggle Living (breathing nodes) and Aurora (color waves) independently. These layer on top of any active view mode.
 
-Tags are baked into the graph JSON at build time so the browser doesn't need to do any processing.
+**Bloom** — three sliders for strength, radius, and threshold. Crank strength for a blown-out neon look, or lower the threshold to make dimmer nodes glow.
 
-For better tags, format your block titles like `Artist Name, Work Title` or `Artist Name — Description`. See [docs/TAGGING-GUIDE.md](docs/TAGGING-GUIDE.md) for the full list of recognized keywords and tips.
+**Trails** — toggle afterimage on/off and control persistence. Higher persist values leave longer motion ghosts — works especially well with Spin or Drift.
+
+**Screen** — toggle CRT scanlines, adjust scanline intensity, and control vignette (edge darkening). Push vignette high for a dramatic tunnel effect.
+
+**Scene** — exposure controls overall brightness via tone mapping. Fog controls distance fade (higher = more fog, tighter atmosphere). Edge opacity controls how visible the connection lines between nodes are.
+
+**Color** — full color grading. Hue rotates the entire color spectrum. Saturation goes from grayscale (0) through normal (1) to hyper-vivid (3). Temperature shifts warm (amber) or cool (blue). Invert flips to a full negative.
+
+All FX combine freely — Dream mode + Aurora overlay + high bloom + hue shift + scanlines all work together.
+
+## Filtering
+
+The filter menu builds itself from your data. Whatever categories the auto-tagger finds become tabs in the filter dropdown — no setup required. If your blocks have artist names, you get an artist filter. If they have medium keywords, you get a medium filter. And so on.
+
+The type pills (IMG, LNK, TXT, etc.) also generate dynamically based on what block types exist in your collection.
+
+## How auto-tagging works
+
+The fetch script scans every block's title and description to extract filter categories. No AI or ML — just pattern matching. Here's exactly how each category is detected:
+
+**Artists** — If a block title contains a separator (`, ` or ` — ` or ` - `), the text before the separator is treated as a name. If that same name appears on 2 or more blocks, it becomes an artist tag.
+
+```
+Yayoi Kusama, Infinity Nets        → artist: yayoi-kusama
+Anni Albers — Study for a Rug      → artist: anni-albers
+```
+
+Titles that are just filenames (like `IMG_2034.jpg`) are ignored.
+
+**Mediums** — Block titles and descriptions are scanned for material keywords. Current list includes: paper, ink, acrylic, canvas, oil, pencil, digital, collage, textile, video, ceramic, glass, bronze, watercolor, charcoal, lithograph, woodcut, silkscreen, embroidery, photograph, neon, wire, steel, wood, fabric, thread, and more (~45 keywords).
+
+**Themes** — Same keyword scan for conceptual terms: grid, geometric, generative, abstract, pattern, architecture, typography, algorithmic, minimal, kinetic, optical, landscape, portrait, nature, rhythm, noise, color, space, time, movement, texture, and more (~27 keywords).
+
+**Sources** — If 5 or more blocks link to the same domain (like youtube.com or instagram.com), that domain becomes a source filter.
+
+### Getting better filters
+
+The auto-tagger works best when your blocks have descriptive titles. A few tips:
+
+- **Name your blocks** `Artist Name, Work Title` or `Artist Name — Description` to get artist detection
+- **Add descriptions** with material or theme words and they'll be picked up automatically
+- **Consistent naming** helps — the same artist name needs to appear on at least 2 blocks to register
+- Blocks with generic filenames (`screenshot_2024.png`) won't generate any tags
+
+See [docs/TAGGING-GUIDE.md](docs/TAGGING-GUIDE.md) for the full keyword list.
 
 ## Configuration
 

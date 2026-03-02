@@ -302,13 +302,6 @@ export class CosmosMode {
     this._novaPulse = 0;
     this._novaTimer = 0;
 
-    const btn = document.getElementById('btn-cosmos');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        if (this.active) this.deactivate();
-        else this.activate();
-      });
-    }
   }
 
   _build() {
@@ -452,7 +445,6 @@ export class CosmosMode {
       }
     }
 
-    document.getElementById('btn-cosmos').classList.add('active');
   }
 
   deactivate() {
@@ -472,7 +464,6 @@ export class CosmosMode {
       }
     }
 
-    document.getElementById('btn-cosmos').classList.remove('active');
   }
 
   setAuroraWaves(waves) {

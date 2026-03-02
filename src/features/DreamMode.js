@@ -229,13 +229,6 @@ export class DreamMode {
     this._originalBloom = 0;
     this._built = false;
 
-    const btn = document.getElementById('btn-dream');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        if (this.active) this.deactivate();
-        else this.activate();
-      });
-    }
   }
 
   _build() {
@@ -367,7 +360,6 @@ export class DreamMode {
       }
     }
 
-    document.getElementById('btn-dream').classList.add('active');
   }
 
   deactivate() {
@@ -388,7 +380,6 @@ export class DreamMode {
       }
     }
 
-    document.getElementById('btn-dream').classList.remove('active');
   }
 
   /** Pass aurora wave data into the dream shader uniforms */

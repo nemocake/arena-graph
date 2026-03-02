@@ -25,18 +25,11 @@ export class LivingMode {
       this._phaseOffsets[i] = (i * 2654435761 & 0xFFFF) / 0xFFFF * Math.PI * 2;
     }
 
-    const btn = document.getElementById('btn-living');
-    btn.addEventListener('click', () => {
-      if (this._active) this.stop();
-      else this.start();
-    });
   }
 
   start() {
     this._active = true;
     this._elapsed = 0;
-    document.getElementById('btn-living').classList.add('active');
-
     const nr = this.nodeRenderer;
 
     // Snapshot current positions as base
@@ -58,8 +51,6 @@ export class LivingMode {
 
   stop() {
     this._active = false;
-    document.getElementById('btn-living').classList.remove('active');
-
     const nr = this.nodeRenderer;
 
     // Restore base positions

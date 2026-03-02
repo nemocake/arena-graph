@@ -100,12 +100,6 @@ export class AuroraMode {
     this._rebuildWaves();
 
     // ─── DOM wiring ───
-    const btn = document.getElementById('btn-aurora');
-    btn.addEventListener('click', () => {
-      if (this._active) this.stop();
-      else this.start();
-    });
-
     // Panel close
     const closeBtn = document.getElementById('aurora-panel-close');
     if (closeBtn) {
@@ -237,8 +231,6 @@ export class AuroraMode {
   start() {
     this._active = true;
     this._elapsed = 0;
-    document.getElementById('btn-aurora').classList.add('active');
-
     const panel = document.getElementById('aurora-panel');
     if (panel) panel.classList.remove('hidden');
 
@@ -250,8 +242,6 @@ export class AuroraMode {
 
   stop() {
     this._active = false;
-    document.getElementById('btn-aurora').classList.remove('active');
-
     const panel = document.getElementById('aurora-panel');
     if (panel) panel.classList.add('hidden');
 

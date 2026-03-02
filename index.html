@@ -169,24 +169,120 @@
                 </span>
                 <button class="ctrl-btn" id="btn-spin" title="Spin — rotate from current view">SPIN</button>
                 <button class="ctrl-btn" id="btn-drift" title="Drift mode — orbit + morph">DRIFT</button>
-                <button class="ctrl-btn" id="btn-living" title="Living mode — breathing nodes">LIVING</button>
-                <button class="ctrl-btn" id="btn-aurora" title="Aurora mode — color waves">AURORA</button>
-                <button class="ctrl-btn" id="btn-dream" title="Dream mode — particle symphony">DREAM</button>
-                <button class="ctrl-btn" id="btn-cosmos" title="Cosmos mode — spiral galaxy">COSMOS</button>
-                <button class="ctrl-btn" id="btn-nebula" title="Nebula mode — interactive cloud">NEBULA</button>
+                <!-- VIEW dropdown — mutually exclusive particle modes -->
+                <div class="relative" id="view-wrapper">
+                    <button class="ctrl-btn flex items-center gap-1.5" id="view-trigger">
+                        <span id="view-label">VIEW</span>
+                        <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
+                    </button>
+                    <div id="view-dropdown" class="glass-panel dropdown-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:150px; z-index:50;">
+                        <button class="view-option active" data-view="normal">NORMAL</button>
+                        <button class="view-option" data-view="dream">DREAM</button>
+                        <button class="view-option" data-view="cosmos">COSMOS</button>
+                        <button class="view-option" data-view="nebula">NEBULA</button>
+                    </div>
+                </div>
+                <!-- FX dropdown — toggleable overlays + post-processing -->
+                <div class="relative" id="fx-wrapper">
+                    <button class="ctrl-btn flex items-center gap-1.5" id="fx-trigger">
+                        <span>FX</span>
+                        <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
+                    </button>
+                    <div id="fx-dropdown" class="glass-panel dropdown-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:220px; z-index:50; max-height:70vh; overflow-y:auto;">
+                        <div class="dropdown-section-label">OVERLAYS</div>
+                        <label class="fx-toggle-item">
+                            <span class="fx-checkbox" id="fx-cb-living"></span>
+                            <span class="fx-label">LIVING</span>
+                            <span class="fx-desc">breathing</span>
+                        </label>
+                        <label class="fx-toggle-item">
+                            <span class="fx-checkbox" id="fx-cb-aurora"></span>
+                            <span class="fx-label">AURORA</span>
+                            <span class="fx-desc">color waves</span>
+                        </label>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-label">BLOOM</div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Strength</span>
+                            <input type="range" id="fx-bloom" class="fx-slider" min="0" max="3" step="0.05" value="0.4">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Radius</span>
+                            <input type="range" id="fx-bloom-radius" class="fx-slider" min="0" max="2" step="0.05" value="0.3">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Threshold</span>
+                            <input type="range" id="fx-bloom-threshold" class="fx-slider" min="0" max="1" step="0.05" value="0.6">
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-label">TRAILS</div>
+                        <label class="fx-toggle-item">
+                            <span class="fx-checkbox" id="fx-cb-trails"></span>
+                            <span class="fx-label">Trails</span>
+                            <span class="fx-desc">afterimage</span>
+                        </label>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Persist</span>
+                            <input type="range" id="fx-trail-damp" class="fx-slider" min="0.8" max="0.98" step="0.01" value="0.85">
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-label">SCREEN</div>
+                        <label class="fx-toggle-item">
+                            <span class="fx-checkbox" id="fx-cb-scanlines"></span>
+                            <span class="fx-label">Scanlines</span>
+                            <span class="fx-desc">CRT effect</span>
+                        </label>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Scan Int.</span>
+                            <input type="range" id="fx-scanline-int" class="fx-slider" min="0" max="0.15" step="0.005" value="0.04">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Vignette</span>
+                            <input type="range" id="fx-vignette" class="fx-slider" min="0" max="1.5" step="0.05" value="0.5">
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-label">SCENE</div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Exposure</span>
+                            <input type="range" id="fx-exposure" class="fx-slider" min="0.3" max="3" step="0.05" value="1.2">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Fog</span>
+                            <input type="range" id="fx-fog" class="fx-slider" min="0" max="0.001" step="0.00001" value="0.00015">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Edges</span>
+                            <input type="range" id="fx-edge-opacity" class="fx-slider" min="0" max="0.4" step="0.01" value="0.07">
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-label">COLOR</div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Hue</span>
+                            <input type="range" id="fx-hue" class="fx-slider" min="0" max="1" step="0.01" value="0">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Saturate</span>
+                            <input type="range" id="fx-saturation" class="fx-slider" min="0" max="3" step="0.05" value="1">
+                        </div>
+                        <div class="fx-slider-row">
+                            <span class="fx-label">Temp</span>
+                            <input type="range" id="fx-temperature" class="fx-slider" min="-1" max="1" step="0.05" value="0">
+                        </div>
+                        <label class="fx-toggle-item">
+                            <span class="fx-checkbox" id="fx-cb-invert"></span>
+                            <span class="fx-label">Invert</span>
+                            <span class="fx-desc">negative</span>
+                        </label>
+                    </div>
+                </div>
                 <span class="w-2 h-2 rounded-full bg-acid animate-pulse shadow-[0_0_10px_#ccff00] ml-1"></span>
             </div>
         </header>
 
         <!-- Filter Bar -->
         <div class="flex items-center gap-2 px-5 py-2 border-b border-white/[0.04] bg-void/60 backdrop-blur-sm z-30">
-            <div class="flex items-center gap-1.5 mr-3">
+            <div id="type-pills" class="flex items-center gap-1.5 mr-3">
                 <span class="font-mono text-[8px] text-gray-600 uppercase tracking-widest mr-1">Type</span>
-                <button class="type-pill active" data-type="Image">IMG <span class="text-gray-600" id="count-Image"></span></button>
-                <button class="type-pill active" data-type="Media">MDA <span class="text-gray-600" id="count-Media"></span></button>
-                <button class="type-pill active" data-type="Link">LNK <span class="text-gray-600" id="count-Link"></span></button>
-                <button class="type-pill active" data-type="Text">TXT <span class="text-gray-600" id="count-Text"></span></button>
-                <button class="type-pill active" data-type="Attachment">ATT <span class="text-gray-600" id="count-Attachment"></span></button>
             </div>
 
             <span class="text-gray-800">|</span>
@@ -214,7 +310,7 @@
                     <span id="ch-filter-label">CHANNELS</span>
                     <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-40"><path d="M0 2l4 4 4-4" fill="currentColor"/></svg>
                 </button>
-                <div id="ch-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:260px; max-height:400px; z-index:50; display:none; flex-direction:column;">
+                <div id="ch-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:260px; max-height:400px; z-index:50;">
                     <div class="flex items-center justify-between p-2 border-b border-white/[0.06]">
                         <span class="font-mono text-[9px] text-gray-500 uppercase tracking-widest">Toggle Channels</span>
                         <div class="flex gap-2">
@@ -235,13 +331,8 @@
                     </button>
                     <div id="cat-filter-active-pills" class="flex items-center gap-1 overflow-x-auto" style="max-width: 300px;"></div>
                 </div>
-                <div id="cat-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:300px; max-height:420px; z-index:50; display:none; flex-direction:column;">
-                    <div class="flex gap-1 p-2 border-b border-white/[0.06]">
-                        <button class="cat-tab active" data-cat="artist" style="--cat-color:#ff3366;">ART <span class="opacity-40" id="cat-count-artist"></span></button>
-                        <button class="cat-tab" data-cat="medium" style="--cat-color:#00ff88;">MED <span class="opacity-40" id="cat-count-medium"></span></button>
-                        <button class="cat-tab" data-cat="theme" style="--cat-color:#00f3ff;">THM <span class="opacity-40" id="cat-count-theme"></span></button>
-                        <button class="cat-tab" data-cat="source" style="--cat-color:#ff9900;">SRC <span class="opacity-40" id="cat-count-source"></span></button>
-                    </div>
+                <div id="cat-filter-dropdown" class="glass-panel" style="position:absolute; top:calc(100% + 4px); right:0; width:300px; max-height:420px; z-index:50;">
+                    <div id="cat-filter-tabs" class="flex gap-1 p-2 border-b border-white/[0.06]"></div>
                     <div class="p-2 border-b border-white/[0.06]">
                         <input type="text" class="cat-filter-search" id="cat-filter-search" placeholder="search..." autocomplete="off" spellcheck="false">
                     </div>

@@ -393,6 +393,202 @@ async function init() {
     if (driftActive) stopDrift();
   });
 
+  // ─── VIEW dropdown (mutually exclusive particle modes) ───
+  const viewTrigger = document.getElementById('view-trigger');
+  const viewDropdown = document.getElementById('view-dropdown');
+  const viewLabel = document.getElementById('view-label');
+  let viewOpen = false;
+  let activeView = 'normal';
+
+  const viewModes = { dream: dreamMode, cosmos: cosmosMode, nebula: nebulaMode };
+
+  viewTrigger.addEventListener('click', () => {
+    viewOpen = !viewOpen;
+    viewDropdown.classList.toggle('open', viewOpen);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (viewOpen && !document.getElementById('view-wrapper').contains(e.target)) {
+      viewOpen = false;
+      viewDropdown.classList.remove('open');
+    }
+  });
+
+  function selectView(view) {
+    if (view === activeView) return;
+
+    // Deactivate current particle mode
+    if (activeView !== 'normal' && viewModes[activeView]) {
+      viewModes[activeView].deactivate();
+    }
+
+    // Activate new mode
+    if (view !== 'normal' && viewModes[view]) {
+      viewModes[view].activate();
+    }
+
+    activeView = view;
+    viewLabel.textContent = view === 'normal' ? 'VIEW' : 'VIEW: ' + view.toUpperCase();
+    viewTrigger.classList.toggle('active', view !== 'normal');
+
+    viewDropdown.querySelectorAll('.view-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    viewOpen = false;
+    viewDropdown.classList.remove('open');
+
+    // Sync FX panel after mode changes bloom/trails
+    requestAnimationFrame(syncFxPanel);
+  }
+
+  viewDropdown.querySelectorAll('.view-option').forEach(btn => {
+    btn.addEventListener('click', () => selectView(btn.dataset.view));
+  });
+
+  // ─── FX dropdown (toggleable overlays + post-processing) ───
+  const fxTrigger = document.getElementById('fx-trigger');
+  const fxDropdown = document.getElementById('fx-dropdown');
+  let fxOpen = false;
+
+  fxTrigger.addEventListener('click', () => {
+    fxOpen = !fxOpen;
+    fxDropdown.classList.toggle('open', fxOpen);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (fxOpen && !document.getElementById('fx-wrapper').contains(e.target)) {
+      fxOpen = false;
+      fxDropdown.classList.remove('open');
+    }
+  });
+
+  // Living toggle
+  const cbLiving = document.getElementById('fx-cb-living');
+  cbLiving.closest('.fx-toggle-item').addEventListener('click', () => {
+    if (livingMode.active) {
+      livingMode.stop();
+      cbLiving.classList.remove('on');
+    } else {
+      livingMode.start();
+      cbLiving.classList.add('on');
+    }
+  });
+
+  // Aurora toggle
+  const cbAurora = document.getElementById('fx-cb-aurora');
+  cbAurora.closest('.fx-toggle-item').addEventListener('click', () => {
+    if (auroraMode.active) {
+      auroraMode.stop();
+      cbAurora.classList.remove('on');
+    } else {
+      auroraMode.start();
+      cbAurora.classList.add('on');
+    }
+  });
+
+  // ── Bloom sliders ──
+  const bloomSlider = document.getElementById('fx-bloom');
+  bloomSlider.value = postProcessing.bloomPass.strength;
+  bloomSlider.addEventListener('input', () => {
+    postProcessing.bloomPass.strength = parseFloat(bloomSlider.value);
+  });
+
+  const bloomRadiusSlider = document.getElementById('fx-bloom-radius');
+  bloomRadiusSlider.value = postProcessing.bloomPass.radius;
+  bloomRadiusSlider.addEventListener('input', () => {
+    postProcessing.bloomPass.radius = parseFloat(bloomRadiusSlider.value);
+  });
+
+  const bloomThresholdSlider = document.getElementById('fx-bloom-threshold');
+  bloomThresholdSlider.value = postProcessing.bloomPass.threshold;
+  bloomThresholdSlider.addEventListener('input', () => {
+    postProcessing.bloomPass.threshold = parseFloat(bloomThresholdSlider.value);
+  });
+
+  // ── Trails ──
+  const cbTrails = document.getElementById('fx-cb-trails');
+  cbTrails.closest('.fx-toggle-item').addEventListener('click', () => {
+    const on = !postProcessing.afterimagePass.enabled;
+    postProcessing.afterimagePass.enabled = on;
+    cbTrails.classList.toggle('on', on);
+  });
+
+  const trailDampSlider = document.getElementById('fx-trail-damp');
+  trailDampSlider.value = postProcessing.afterimagePass.uniforms['damp'].value;
+  trailDampSlider.addEventListener('input', () => {
+    postProcessing.afterimagePass.uniforms['damp'].value = parseFloat(trailDampSlider.value);
+  });
+
+  // ── Scanlines + Vignette ──
+  const cbScanlines = document.getElementById('fx-cb-scanlines');
+  cbScanlines.classList.add('on');
+  cbScanlines.closest('.fx-toggle-item').addEventListener('click', () => {
+    const on = !postProcessing.scanlinePass.enabled;
+    postProcessing.scanlinePass.enabled = on;
+    cbScanlines.classList.toggle('on', on);
+  });
+
+  const scanlineIntSlider = document.getElementById('fx-scanline-int');
+  scanlineIntSlider.addEventListener('input', () => {
+    postProcessing.scanlinePass.uniforms.uScanlineIntensity.value = parseFloat(scanlineIntSlider.value);
+  });
+
+  const vignetteSlider = document.getElementById('fx-vignette');
+  vignetteSlider.addEventListener('input', () => {
+    postProcessing.scanlinePass.uniforms.uVignetteStrength.value = parseFloat(vignetteSlider.value);
+  });
+
+  // ── Scene: exposure, fog, edges ──
+  const exposureSlider = document.getElementById('fx-exposure');
+  exposureSlider.addEventListener('input', () => {
+    sceneManager.renderer.toneMappingExposure = parseFloat(exposureSlider.value);
+  });
+
+  const fogSlider = document.getElementById('fx-fog');
+  fogSlider.addEventListener('input', () => {
+    sceneManager.scene.fog.density = parseFloat(fogSlider.value);
+  });
+
+  const edgeOpacitySlider = document.getElementById('fx-edge-opacity');
+  edgeOpacitySlider.addEventListener('input', () => {
+    edgeRenderer.material.opacity = parseFloat(edgeOpacitySlider.value);
+  });
+
+  // ── Color grading ──
+  const hueSlider = document.getElementById('fx-hue');
+  hueSlider.addEventListener('input', () => {
+    postProcessing.colorGradingPass.uniforms.uHueShift.value = parseFloat(hueSlider.value);
+  });
+
+  const saturationSlider = document.getElementById('fx-saturation');
+  saturationSlider.addEventListener('input', () => {
+    postProcessing.colorGradingPass.uniforms.uSaturation.value = parseFloat(saturationSlider.value);
+  });
+
+  const temperatureSlider = document.getElementById('fx-temperature');
+  temperatureSlider.addEventListener('input', () => {
+    postProcessing.colorGradingPass.uniforms.uTemperature.value = parseFloat(temperatureSlider.value);
+  });
+
+  const cbInvert = document.getElementById('fx-cb-invert');
+  cbInvert.closest('.fx-toggle-item').addEventListener('click', () => {
+    const on = !cbInvert.classList.contains('on');
+    cbInvert.classList.toggle('on', on);
+    postProcessing.colorGradingPass.uniforms.uInvert.value = on ? 1.0 : 0.0;
+  });
+
+  // Sync FX panel UI with actual post-processing state
+  function syncFxPanel() {
+    bloomSlider.value = postProcessing.bloomPass.strength;
+    bloomRadiusSlider.value = postProcessing.bloomPass.radius;
+    bloomThresholdSlider.value = postProcessing.bloomPass.threshold;
+    cbTrails.classList.toggle('on', postProcessing.afterimagePass.enabled);
+    trailDampSlider.value = postProcessing.afterimagePass.uniforms['damp'].value;
+    cbLiving.classList.toggle('on', livingMode.active);
+    cbAurora.classList.toggle('on', auroraMode.active);
+  }
+
   // Cross-links highlight
   document.getElementById('btn-crosslinks').addEventListener('click', () => {
     const active = !state.get('crosslinksActive');
@@ -424,11 +620,7 @@ async function init() {
   document.getElementById('stat-cross').textContent = graphData.meta.crossConnectedBlocks + ' cross-links';
   document.getElementById('sync-date').textContent = new Date(graphData.meta.fetchedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  // Populate type counts
-  ['Image', 'Media', 'Link', 'Text', 'Attachment'].forEach(t => {
-    const el = document.getElementById('count-' + t);
-    if (el) el.textContent = graphData.typeCounts[t] || 0;
-  });
+  // Type counts are now populated dynamically by FilterEngine
 
   // ─── Channel legend ───
   const legendItems = document.getElementById('legend-items');

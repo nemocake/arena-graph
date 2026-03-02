@@ -249,13 +249,6 @@ export class NebulaMode {
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseLeave = this._onMouseLeave.bind(this);
 
-    const btn = document.getElementById('btn-nebula');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        if (this.active) this.deactivate();
-        else this.activate();
-      });
-    }
   }
 
   _onMouseMove(event) {
@@ -448,7 +441,6 @@ export class NebulaMode {
       }
     }
 
-    document.getElementById('btn-nebula').classList.add('active');
   }
 
   deactivate() {
@@ -478,7 +470,6 @@ export class NebulaMode {
       }
     }
 
-    document.getElementById('btn-nebula').classList.remove('active');
   }
 
   update(delta) {

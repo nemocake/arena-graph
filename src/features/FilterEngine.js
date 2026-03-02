@@ -11,25 +11,8 @@ export class FilterEngine {
     this.nodeRenderer = nodeRenderer;
     this.edgeRenderer = edgeRenderer;
 
-    // --- Type filter pills ---
-    const typePills = document.querySelectorAll('.type-pill');
-    typePills.forEach(pill => {
-      pill.addEventListener('click', () => {
-        const type = pill.dataset.type;
-        const types = this.state.get('visibleTypes');
-        if (types.has(type)) {
-          types.delete(type);
-          pill.classList.remove('active');
-          pill.classList.add('disabled');
-        } else {
-          types.add(type);
-          pill.classList.add('active');
-          pill.classList.remove('disabled');
-        }
-        this.state.set('visibleTypes', new Set(types));
-        this._applyFilters();
-      });
-    });
+    // --- Type filter pills (dynamic) ---
+    this._initTypePills();
 
     // --- Channel filter ---
     this._initChannelFilter();
@@ -44,6 +27,46 @@ export class FilterEngine {
     state.on('visibleChannels', () => this._applyFilters());
     state.on('activeCategories', () => this._applyFilters());
     state.on('timelineRange', () => this._applyFilters());
+  }
+
+  _initTypePills() {
+    const container = document.getElementById('type-pills');
+    if (!container) return;
+
+    const TYPE_LABELS = {
+      Image: 'IMG', Media: 'MDA', Link: 'LNK',
+      Text: 'TXT', Attachment: 'ATT', Block: 'BLK',
+    };
+
+    const types = this.graphData.typeCounts;
+    const visibleTypes = new Set();
+
+    for (const [type, count] of Object.entries(types)) {
+      if (count === 0) continue;
+      visibleTypes.add(type);
+      const label = TYPE_LABELS[type] || type.substring(0, 3).toUpperCase();
+      const pill = document.createElement('button');
+      pill.className = 'type-pill active';
+      pill.dataset.type = type;
+      pill.innerHTML = `${label} <span class="text-gray-600">${count}</span>`;
+      pill.addEventListener('click', () => {
+        const current = this.state.get('visibleTypes');
+        if (current.has(type)) {
+          current.delete(type);
+          pill.classList.remove('active');
+          pill.classList.add('disabled');
+        } else {
+          current.add(type);
+          pill.classList.add('active');
+          pill.classList.remove('disabled');
+        }
+        this.state.set('visibleTypes', new Set(current));
+        this._applyFilters();
+      });
+      container.appendChild(pill);
+    }
+
+    this.state.set('visibleTypes', visibleTypes);
   }
 
   _initChannelFilter() {
@@ -110,13 +133,74 @@ export class FilterEngine {
   _initCategoryFilter() {
     const trigger = document.getElementById('cat-filter-trigger');
     const dropdown = document.getElementById('cat-filter-dropdown');
+    const tabContainer = document.getElementById('cat-filter-tabs');
     const list = document.getElementById('cat-filter-list');
     const search = document.getElementById('cat-filter-search');
     const pills = document.getElementById('cat-filter-active-pills');
-    const tabs = document.querySelectorAll('.cat-tab');
+
+    const ati = this.graphData.autoTagIndex;
+
+    // Discover categories dynamically from data
+    const catCounts = {};
+    for (const tag in ati) {
+      const cat = tag.split(':')[0];
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    }
+
+    // Sort categories by item count (most first)
+    const categories = Object.entries(catCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, count]) => ({ cat, count }));
+
+    // Hide filter entirely if no categories
+    if (categories.length === 0) {
+      const wrapper = document.getElementById('cat-filter-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+      return;
+    }
+
+    // Color palette for categories — known ones get stable colors, others cycle
+    const KNOWN_COLORS = {
+      artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900',
+    };
+    const FALLBACK_COLORS = ['#cc66ff', '#ffcc00', '#00ffcc', '#ff6666', '#66ccff', '#ff66cc'];
+    let fallbackIdx = 0;
+
+    this._catColors = {};
+    for (const { cat } of categories) {
+      if (KNOWN_COLORS[cat]) {
+        this._catColors[cat] = KNOWN_COLORS[cat];
+      } else {
+        this._catColors[cat] = FALLBACK_COLORS[fallbackIdx % FALLBACK_COLORS.length];
+        fallbackIdx++;
+      }
+    }
+
+    // Short label for tabs (first 3 chars uppercase)
+    const TAB_LABELS = { artist: 'ART', medium: 'MED', theme: 'THM', source: 'SRC' };
 
     let open = false;
-    let currentCat = 'artist';
+    let currentCat = categories[0].cat;
+
+    // Build tabs dynamically
+    const tabButtons = [];
+    for (const { cat, count } of categories) {
+      const label = TAB_LABELS[cat] || cat.substring(0, 3).toUpperCase();
+      const color = this._catColors[cat];
+      const btn = document.createElement('button');
+      btn.className = 'cat-tab' + (cat === currentCat ? ' active' : '');
+      btn.dataset.cat = cat;
+      btn.style.setProperty('--cat-color', color);
+      btn.innerHTML = `${label} <span class="opacity-40">${count}</span>`;
+      btn.addEventListener('click', () => {
+        tabButtons.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        currentCat = cat;
+        renderItems();
+      });
+      tabContainer.appendChild(btn);
+      tabButtons.push(btn);
+    }
 
     trigger.addEventListener('click', () => {
       open = !open;
@@ -129,28 +213,6 @@ export class FilterEngine {
         dropdown.classList.remove('open');
       }
     });
-
-    // Category tabs
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentCat = tab.dataset.cat;
-        renderItems();
-      });
-    });
-
-    // Populate counts
-    const ati = this.graphData.autoTagIndex;
-    const catCounts = { artist: 0, medium: 0, theme: 0, source: 0 };
-    for (const tag in ati) {
-      const cat = tag.split(':')[0];
-      if (catCounts[cat] !== undefined) catCounts[cat]++;
-    }
-    for (const cat in catCounts) {
-      const el = document.getElementById(`cat-count-${cat}`);
-      if (el) el.textContent = catCounts[cat];
-    }
 
     const renderItems = (filter = '') => {
       list.innerHTML = '';
@@ -188,12 +250,11 @@ export class FilterEngine {
       pills.innerHTML = '';
       const cats = this.state.get('activeCategories');
       for (const c of cats) {
-        const colors = { artist: '#ff3366', medium: '#00ff88', theme: '#00f3ff', source: '#ff9900' };
-        const color = colors[c.cat] || '#666';
+        const color = this._catColors[c.cat] || '#666';
         const pill = document.createElement('span');
         pill.className = 'tag-pill';
         pill.style.cssText = `background:${color}20; color:${color}; border:1px solid ${color}40;`;
-        pill.textContent = c.tag.split(':')[1] + ' ×';
+        pill.textContent = c.tag.split(':')[1] + ' \u00d7';
         pill.addEventListener('click', () => {
           const updated = this.state.get('activeCategories').filter(x => x.tag !== c.tag);
           this.state.set('activeCategories', updated);
